@@ -1,5 +1,5 @@
 # Use AdoptOpenJDK 11 as base image
-FROM adoptopenjdk:11-jre-hotspot
+FROM adoptopenjdk:11-jre-hotspot as builder
 
 # Set working directory inside the container
 WORKDIR /app
