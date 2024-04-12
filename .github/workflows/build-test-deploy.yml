@@ -42,4 +42,4 @@ jobs:
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           docker build -t ghcr.io/$REPO_LOWER/testdemo:${{ github.sha }} .
-          docker push ghcr.io/$REPO_LOWER/testdemo:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/testdemo:${{ github.sha }}
