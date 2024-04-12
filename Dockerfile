@@ -1,5 +1,9 @@
-# Use AdoptOpenJDK 11 as base image
-FROM adoptopenjdk:11-jre-hotspot as builder
+# Use AdoptOpenJDK 11 as base image with JDK
+FROM adoptopenjdk:11-jdk-hotspot as builder
+
+# Install Maven
+RUN apt-get update && \
+    apt-get install -y maven
 
 # Set working directory inside the container
 WORKDIR /app
