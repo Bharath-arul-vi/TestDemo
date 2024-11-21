@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: "Release version (e.g., v1.0.0)"
+        description: "Release version (e.g., v0.0.1)"
         required: true
 
 jobs:
@@ -15,12 +15,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          fetch-depth: 0  # Fetch full history for tagging
+          fetch-depth: 0
+
+      - name: Check if Tag Already Exists
+        id: tag_check
+        run: |
+          if git rev-parse "payflow-release-${{ github.event.inputs.release_version }}" >/dev/null 2>&1; then
+            echo "Tag payflow-release-${{ github.event.inputs.release_version }} already exists."
+            echo "tag_exists=true" >> $GITHUB_ENV
+          else
+            echo "tag_exists=false" >> $GITHUB_ENV
+          fi
 
       - name: Create Git Tag
+        if: env.tag_exists == 'false'
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git tag "payflow-release-${{ github.event.inputs.release_version }}"
           git push origin "payflow-release-${{ github.event.inputs.release_version }}"
+          
+      - name: Notify if Tag Exists
+        if: env.tag_exists == 'true'
+        run: echo "The tag payflow-release-${{ github.event.inputs.release_version }} already exists. Skipping tagging."
       
