@@ -64,7 +64,7 @@ jobs:
         run: |
           TARGET_GROUP="${{ env.TARGET_ENVIRONMENT }}"
           echo "Looking up host for group: $TARGET_GROUP"
-          TARGET_HOST=$(ansible-inventory -i .github/deploy/inventory.ini --list | jq -r ".\"$TARGET_GROUP\".hosts[0]")
+          TARGET_HOST=$(ansible-inventory -i .github/workflows/inventory.ini --list | jq -r ".\"$TARGET_GROUP\".hosts[0]")
           if [ -z "$TARGET_HOST" ]; then
             echo "Error: No host found for group '$TARGET_GROUP'."
             exit 1
@@ -116,7 +116,7 @@ jobs:
           TARGET_SERVER="${{ env.TARGET_SERVER }}"
           echo "Deploying to server: $TARGET_SERVER"
 
-          ansible-playbook -i .github/deploy/inventory.ini .github/deploy/ansible-deployment-playbook.yml --limit $TARGET_SERVER -vvvv
+          ansible-playbook -i .github/workflows/inventory.ini  --limit $TARGET_SERVER -vvvv
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
 
