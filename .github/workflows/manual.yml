@@ -1,30 +1,230 @@
-# This is a basic workflow that is manually triggered
+name: Manual payflow deployment
 
-name: Manual workflow
-
-# Controls when the action will run. Workflow runs when manually triggered using the UI
-# or API.
 on:
   workflow_dispatch:
-    # Inputs the workflow accepts.
     inputs:
-      environment:
-        # Friendly description to be shown in the UI instead of 'name'
-        description: 'Enter the environment (e.g., dfs1-dev, dfs2-dev)'
-        # Input has to be provided for the workflow to run
+      environment_type:
+        description: 'Select the type of environment'
         required: true
-        # The data type of the input
-        type: string
+        type: choice
+        options:
+          - development
+          - sandbox
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+      development_environment:
+        description: 'Select the development environment'
+        required: false
+        type: choice
+        options:
+          - Dev_server_dfs1_dev
+          - Dev_server_dfs2_dev
+
+      sandbox_environment:
+        description: 'Select the sandbox environment'
+        required: false
+        type: choice
+        options:
+          - Zurich_sandbox_dfs1_tst
+          - UK_sandbox_001_crx_t_dfs_l
+          - UK_sandbox_001_chn_t_dfs_l
+
+env:
+  JAVA_VERSION: 21
+  MAVEN_VERSION: 3.9.5
+
 jobs:
-  # This workflow contains a single job called "greet"
-  greet:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+  application-deployment:
+    runs-on:
+      group: onprem-infra-zurichNP
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    # Runs a single command using the runners shell
-    - name: Send greeting
-      run: echo "Hello ${{ inputs.environment }}"
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Validate Inputs
+        run: |
+          if [[ "${{ github.event.inputs.environment_type }}" == "development" ]]; then
+            if [[ -z "${{ github.event.inputs.development_environment }}" ]]; then
+              echo "Error: You must select a development environment."
+              exit 1
+            fi
+            echo "TARGET_ENVIRONMENT=${{ github.event.inputs.development_environment }}" >> $GITHUB_ENV
+          elif [[ "${{ github.event.inputs.environment_type }}" == "sandbox" ]]; then
+            if [[ -z "${{ github.event.inputs.sandbox_environment }}" ]]; then
+              echo "Error: You must select a sandbox environment."
+              exit 1
+            fi
+            echo "TARGET_ENVIRONMENT=${{ github.event.inputs.sandbox_environment }}" >> $GITHUB_ENV
+          else
+            echo "Error: Invalid environment type."
+            exit 1
+          fi
+
+      - name: Set Deployment Server for selected Environments
+        run: |
+          TARGET_GROUP="${{ env.TARGET_ENVIRONMENT }}"
+          echo "Looking up host for group: $TARGET_GROUP"
+          TARGET_HOST=$(ansible-inventory -i .github/deploy/inventory.ini --list | jq -r ".\"$TARGET_GROUP\".hosts[0]")
+          if [ -z "$TARGET_HOST" ]; then
+            echo "Error: No host found for group '$TARGET_GROUP'."
+            exit 1
+          fi
+          echo "TARGET_SERVER=$TARGET_HOST" >> $GITHUB_ENV
+          echo "Target server set to: $TARGET_HOST"
+
+      - name: Determine Active Server
+        id: determine-active
+        run: |
+          if [[ "${{ github.event.inputs.environment_type }}" == "sandbox" ]]; then
+            API_URL="https://api.sandbox.datatrans.com"
+          elif [[ "${{ github.event.inputs.environment_type }}" == "development" ]]; then
+            API_URL="https://dummy.dev.api"
+          else
+            echo "Error: Unsupported environment type '${{ github.event.inputs.environment_type }}'."
+            exit 1
+          fi
+          
+          ACTIVE_SERVER=$(curl -s "$API_URL/pay-flow/actuator/info" | jq -r '.activeServer // empty')
+          if [[ -z "$ACTIVE_SERVER" ]]; then
+            echo "Error: Unable to determine active server from the API."
+            exit 1
+          fi
+          
+          if [[ "${{ env.TARGET_SERVER }}" == "$ACTIVE_SERVER" ]]; then
+            echo "Error: You are attempting to deploy to the active server '$ACTIVE_SERVER'. Deployment is not allowed."
+            exit 1
+          fi
+          
+          echo "ACTIVE_SERVER=$ACTIVE_SERVER" >> $GITHUB_ENV
+          echo "API_URL=$API_URL" >> $GITHUB_ENV
+          echo "Active server: $ACTIVE_SERVER
+
+
+      - name: Setup Java and Maven
+        uses: ./.github/actions/setup-java-maven
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          maven-version: ${{ env.MAVEN_VERSION }}
+
+      - name: Build the Application
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn package -DskipITs -DskipTests -Djansi.tmpdir=/var/tmp
+
+      - name: Deploy to Target Server
+        run: |
+          TARGET_SERVER="${{ env.TARGET_SERVER }}"
+          echo "Deploying to server: $TARGET_SERVER"
+
+          ansible-playbook -i .github/deploy/inventory.ini .github/deploy/ansible-deployment-playbook.yml --limit $TARGET_SERVER -vvvv
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: 'False'
+
+      - name: Validate Deployment
+        run: |
+          curl -f "${{ env.API_URL }}/pay-flow/actuator/health" || (echo "Health check failed" && exit 1)
+
+      - name: Notify Deployment Success
+        if: success()
+        run: |
+          echo "Deployment to ${{ env.TARGET_SERVER }} successful."
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: application-deployment
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Java and Maven
+        uses: ./.github/actions/setup-java-maven
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          maven-version: ${{ env.MAVEN_VERSION }}
+
+      - name: Remove existing Chrome versions
+        run: |
+          sudo apt-get purge -y google-chrome-stable || true
+          sudo apt-get purge -y google-chrome-beta || true
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+
+      - name: Install specific version of Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: 126
+          install-dependencies: true
+          install-chromedriver: true
+          chromedriver-version: 126
+
+      - name: Verify ChromeDriver installation
+        run: |
+          chromedriver --version
+          which chromedriver
+          echo "ChromeDriver path: $(which chromedriver)"
+          ls -la $(which chromedriver)
+          chromedriver --version
+
+      - name: Set Chrome and ChromeDriver binary paths
+        run: |
+          echo "CHROME_BIN=$(which google-chrome)" >> $GITHUB_ENV
+          echo "CHROMEDRIVER_BIN=$(which chromedriver)" >> $GITHUB_ENV
+          echo "CHROME_BIN is set to: $CHROME_BIN"
+          echo "CHROMEDRIVER_BIN is set to: $CHROMEDRIVER_BIN"
+          env  # Print all environment variables for debugging
+
+      - name: Run Integration Tests
+        run: mvn verify -Pintegration-tests -DBASE_URL=${{ env.API_URL }}
+
+  create-tag:
+    runs-on: ubuntu-latest
+    needs: [application-deployment, integration-test]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Get Deployed Artifact Version
+        id: version_check
+        run: |
+          # Fetch the deployed artifact version from the API
+          ARTIFACT_VERSION=$(curl -s "$API_URL/pay-flow/actuator/info" | jq -r '.deployed-artifact // "0.0.0"')
+          
+          # Increment version by 0.0.1 or set to 0.0.1 if empty
+          if [[ "$ARTIFACT_VERSION" == "0.0.0" || -z "$ARTIFACT_VERSION" ]]; then
+          NEW_VERSION="0.0.1"
+          else
+          # Increment the patch version by 0.0.1
+          IFS='.' read -r -a VERSION_PARTS <<< "$ARTIFACT_VERSION"
+          PATCH_VERSION=${VERSION_PARTS[2]}
+          NEW_PATCH_VERSION=$((PATCH_VERSION + 1))
+          NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$NEW_PATCH_VERSION"
+          fi
+          
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "Deployed version: $ARTIFACT_VERSION, New version: $NEW_VERSION"
+
+      - name: Check if Tag Already Exists
+        id: tag_check
+        run: |
+          TAG_NAME="payflow-release-${{ env.NEW_VERSION }}"
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists."
+            echo "tag_exists=true" >> $GITHUB_ENV
+          else
+            echo "tag_exists=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create Git Tag
+        if: env.tag_exists == 'false'
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag "payflow-release-${{ env.NEW_VERSION }}"
+          git push origin "payflow-release-${{ env.NEW_VERSION }}"
+
+      - name: Notify if Tag Exists
+        if: env.tag_exists == 'true'
+        run: echo "The tag payflow-release-${{ env.NEW_VERSION }} already exists. Skipping tagging."
