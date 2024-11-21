@@ -16,6 +16,7 @@ on:
         required: false
         type: choice
         options:
+          - ""
           - Dev_server_dfs1_dev
           - Dev_server_dfs2_dev
 
@@ -24,6 +25,7 @@ on:
         required: false
         type: choice
         options:
+          - ""
           - Zurich_sandbox_dfs1_tst
           - UK_sandbox_001_crx_t_dfs_l
           - UK_sandbox_001_chn_t_dfs_l
