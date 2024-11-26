@@ -37,8 +37,7 @@ env:
 
 jobs:
   application-deployment:
-    runs-on:
-      group: onprem-infra-zurichNP
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
