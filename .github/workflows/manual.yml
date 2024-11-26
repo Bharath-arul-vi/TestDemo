@@ -33,14 +33,27 @@ on:
 env:
   JAVA_VERSION: 21
   MAVEN_VERSION: 3.9.5
+  SLACK_RELEASE_WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK }}
 
 jobs:
   application-deployment:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: onprem-infra-zurichNP
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Set Branch Environment Variable
+        run: |
+          echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "Branch is set to: ${{ github.ref_name }}"
+
+      - name: Setup Java and Maven
+        uses: ./.github/actions/setup-java-maven
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          maven-version: ${{ env.MAVEN_VERSION }}
 
       - name: Validate Inputs
         run: |
@@ -65,7 +78,7 @@ jobs:
         run: |
           TARGET_GROUP="${{ env.TARGET_ENVIRONMENT }}"
           echo "Looking up host for group: $TARGET_GROUP"
-          TARGET_HOST=$(ansible-inventory -i .github/workflows/inventory.ini --list | jq -r ".\"$TARGET_GROUP\".hosts[0]")
+          TARGET_HOST=$(ansible-inventory -i .github/deploy/inventory.ini --list | jq -r ".\"$TARGET_GROUP\".hosts[0]")
           if [ -z "$TARGET_HOST" ]; then
             echo "Error: No host found for group '$TARGET_GROUP'."
             exit 1
@@ -73,13 +86,21 @@ jobs:
           echo "TARGET_SERVER=$TARGET_HOST" >> $GITHUB_ENV
           echo "Target server set to: $TARGET_HOST"
 
+      - name: Notify Deployment Started
+        uses: ./.github/workflows/slack-notify.yml
+        with:
+          message: ":small_orange_diamond: *Pay-flow Deployment Started.*"
+          branch: "$BRANCH"
+          environment: "${{ env.TARGET_SERVER }}"
+          slack_webhook_url: "${{ env.SLACK_RELEASE_WEBHOOK }}"
+
       - name: Determine Active Server
         id: determine-active
         run: |
           if [[ "${{ github.event.inputs.environment_type }}" == "sandbox" ]]; then
             API_URL="https://api.sandbox.datatrans.com"
           elif [[ "${{ github.event.inputs.environment_type }}" == "development" ]]; then
-            API_URL="https://dummy.dev.api"
+            API_URL="https://api-dev.datatrans.biz"
           else
             echo "Error: Unsupported environment type '${{ github.event.inputs.environment_type }}'."
             exit 1
@@ -92,20 +113,25 @@ jobs:
           fi
           
           if [[ "${{ env.TARGET_SERVER }}" == "$ACTIVE_SERVER" ]]; then
-            echo "Error: You are attempting to deploy to the active server '$ACTIVE_SERVER'. Deployment is not allowed."
+            echo "Error: You are attempting to deploy to the active server '$ACTIVE_SERVER'. Deployment is not allowed." | tee /tmp/error_message.txt
+            curl -X POST -H 'Content-type: application/json' \
+              --data '{
+                "blocks": [
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": ":red_circle: *Deployment Error:* You are attempting to deploy to the active server `'$ACTIVE_SERVER'`. Deployment is not allowed."
+                    }
+                  }
+                ]
+              }' "${{ env.SLACK_RELEASE_WEBHOOK }}"
             exit 1
           fi
           
           echo "ACTIVE_SERVER=$ACTIVE_SERVER" >> $GITHUB_ENV
           echo "API_URL=$API_URL" >> $GITHUB_ENV
           echo "Active server: $ACTIVE_SERVER
-
-
-      - name: Setup Java and Maven
-        uses: ./.github/actions/setup-java-maven
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          maven-version: ${{ env.MAVEN_VERSION }}
 
       - name: Build the Application
         env:
@@ -117,7 +143,7 @@ jobs:
           TARGET_SERVER="${{ env.TARGET_SERVER }}"
           echo "Deploying to server: $TARGET_SERVER"
 
-          ansible-playbook -i .github/workflows/inventory.ini  --limit $TARGET_SERVER -vvvv
+          ansible-playbook -i .github/deploy/inventory.ini .github/deploy/ansible-deployment-playbook.yml --limit $TARGET_SERVER -vvvv
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
 
@@ -127,55 +153,27 @@ jobs:
 
       - name: Notify Deployment Success
         if: success()
-        run: |
-          echo "Deployment to ${{ env.TARGET_SERVER }} successful."
+        uses: ./.github/workflows/slack-notify.yml
+        with:
+          message: ":large_green_circle: *Pay-flow Deployment Successful.*"
+          branch: "$BRANCH"
+          environment: "${{ env.TARGET_SERVER }}"
+          slack_webhook_url: "${{ env.SLACK_RELEASE_WEBHOOK }}"
+
 
   integration-test:
-    runs-on: ubuntu-latest
     needs: application-deployment
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Setup Java and Maven
-        uses: ./.github/actions/setup-java-maven
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          maven-version: ${{ env.MAVEN_VERSION }}
-
-      - name: Remove existing Chrome versions
+      - name: Set Environment Variables for Reusable Workflow
         run: |
-          sudo apt-get purge -y google-chrome-stable || true
-          sudo apt-get purge -y google-chrome-beta || true
-          sudo apt-get autoremove -y
-          sudo apt-get clean
+          echo "BRANCH=${{ env.BRANCH }}" >> $GITHUB_ENV
+          echo "BASE_URL=${{ env.API_URL }}" >> $GITHUB_ENV
+          echo "JAVA_VERSION=${{ env.JAVA_VERSION }}" >> $GITHUB_ENV
+          echo "MAVEN_VERSION=${{ env.MAVEN_VERSION }}" >> $GITHUB_ENV
 
-      - name: Install specific version of Chrome
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: 126
-          install-dependencies: true
-          install-chromedriver: true
-          chromedriver-version: 126
-
-      - name: Verify ChromeDriver installation
-        run: |
-          chromedriver --version
-          which chromedriver
-          echo "ChromeDriver path: $(which chromedriver)"
-          ls -la $(which chromedriver)
-          chromedriver --version
-
-      - name: Set Chrome and ChromeDriver binary paths
-        run: |
-          echo "CHROME_BIN=$(which google-chrome)" >> $GITHUB_ENV
-          echo "CHROMEDRIVER_BIN=$(which chromedriver)" >> $GITHUB_ENV
-          echo "CHROME_BIN is set to: $CHROME_BIN"
-          echo "CHROMEDRIVER_BIN is set to: $CHROMEDRIVER_BIN"
-          env  # Print all environment variables for debugging
-
-      - name: Run Integration Tests
-        run: mvn verify -Pintegration-tests -DBASE_URL=${{ env.API_URL }}
+      - name: Invoke Reusable Workflow
+        uses: ./.github/workflows/integration-test.yml
 
   create-tag:
     runs-on: ubuntu-latest
