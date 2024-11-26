@@ -86,15 +86,7 @@ jobs:
           echo "TARGET_SERVER=$TARGET_HOST" >> $GITHUB_ENV
           echo "Target server set to: $TARGET_HOST"
 
-      - name: Notify Deployment Started
-        uses: ./.github/workflows/slack-notify.yml
-        with:
-          message: ":small_orange_diamond: *Pay-flow Deployment Started.*"
-          branch: "$BRANCH"
-          environment: "${{ env.TARGET_SERVER }}"
-          slack_webhook_url: "${{ env.SLACK_RELEASE_WEBHOOK }}"
-
-      - name: Determine Active Server
+            - name: Determine Active Server
         id: determine-active
         run: |
           if [[ "${{ github.event.inputs.environment_type }}" == "sandbox" ]]; then
@@ -121,7 +113,7 @@ jobs:
                     "type": "section",
                     "text": {
                       "type": "mrkdwn",
-                      "text": ":red_circle: *Deployment Error:* You are attempting to deploy to the active server `'$ACTIVE_SERVER'`. Deployment is not allowed."
+                      "text": ":red_circle: *Deployment Error:* You are attempting to deploy to the active server "$ACTIVE_SERVER". Deployment is not allowed."
                     }
                   }
                 ]
