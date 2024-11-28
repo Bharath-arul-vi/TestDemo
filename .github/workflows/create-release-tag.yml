@@ -42,7 +42,7 @@ jobs:
         fi
 
         # Output the new version
-        echo "new_version=$NEW_VERSION" >> $GITHUB_ENV
+        echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
     - name: Check if Tag Already Exists
       id: tag_check
