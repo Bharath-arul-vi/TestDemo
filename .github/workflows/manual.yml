@@ -29,6 +29,10 @@ on:
           - Zurich_sandbox_dfs1_tst
           - UK_sandbox_001_crx_t_dfs_l
           - UK_sandbox_001_chn_t_dfs_l
+      create_release_tag:
+        description: 'Should create a release tag?'
+        required: true
+        type: boolean
 
 env:
   JAVA_VERSION: 21
