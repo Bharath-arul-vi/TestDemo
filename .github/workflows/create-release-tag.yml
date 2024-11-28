@@ -47,6 +47,7 @@ jobs:
     - name: Check if Tag Already Exists
       id: tag_check
       run: |
+        git fetch --tags  # Fetch all tags from the remote
         TAG_NAME="payflow-release-${{ env.NEW_VERSION }}"
         if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
           echo "Tag $TAG_NAME already exists."
@@ -74,4 +75,6 @@ jobs:
 
     - name: Notify if Tag Exists
       if: env.tag_exists == 'true'
-      run: echo "The tag payflow-release-${{ env.NEW_VERSION }} already exists. Skipping tagging."
+      run: |
+        echo "Error: The tag payflow-release-${{ env.NEW_VERSION }} already exists."
+        exit 1
