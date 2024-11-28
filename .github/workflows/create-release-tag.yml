@@ -44,6 +44,16 @@ jobs:
         # Output the new version
         echo "new_version=$NEW_VERSION" >> $GITHUB_ENV
 
+    - name: Check if Tag Already Exists
+      id: check-tag
+      run: |
+        TAG_EXISTS=$(git tag -l "${{ env.new_version }}")
+        if [[ -n "$TAG_EXISTS" ]]; then
+          echo "Error: Tag '${{ env.new_version }}' already exists."
+          exit 1
+        fi
+      continue-on-error: false
+
     - name: Update version.txt
       run: |
         echo "$NEW_VERSION" > version.txt
