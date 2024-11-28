@@ -44,17 +44,6 @@ jobs:
         # Output the new version
         echo "new_version=$NEW_VERSION" >> $GITHUB_ENV
 
-    - name: Update version.txt
-      run: |
-        echo "${{ env.NEW_VERSION }}" > version.txt
-        cat version.txt
-
-    - name: Commit and Push Changes
-      run: |
-        git add version.txt
-        git commit -m "Release version ${{ env.new_version }}"
-        git push origin main
-
     - name: Check if Tag Already Exists
       id: tag_check
       run: |
@@ -73,6 +62,15 @@ jobs:
         git config user.email "actions@github.com"
         git tag "payflow-release-${{ env.NEW_VERSION }}"
         git push origin "payflow-release-${{ env.NEW_VERSION }}"
+        
+    - name: Update version.txt
+      if: env.tag_exists == 'false'
+      run: |
+        echo "${{ env.NEW_VERSION }}" > version.txt
+        cat version.txt
+        git add version.txt
+        git commit -m "Release version ${{ env.NEW_VERSION }}"
+        git push origin main
 
     - name: Notify if Tag Exists
       if: env.tag_exists == 'true'
