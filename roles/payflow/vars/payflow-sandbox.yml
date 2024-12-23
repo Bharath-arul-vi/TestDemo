@@ -1,0 +1,3 @@
+payflow_run_args: "--spring.profiles.active=sandbox"
+payflow_base_url: "https://api.sandbox.datatrans.com"
+payflow_db_url: "jdbc:sqlserver://lt-upp-t.ad.datatrans.tech;databaseName=pay_flow;trustServerCertificate=true"

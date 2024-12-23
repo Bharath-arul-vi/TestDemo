@@ -1,0 +1,11 @@
+---
+payflow_java_home: "/usr/local/java21"
+payflow_java_opts: "-Xmx4096M"
+payflow_server_port: "9444"
+payflow_db_username: "pay_flow"
+payflow_db_url: ""
+payflow_run_args: ""
+payflow_base_url: ""
+DB_PASSWORD: ""
+API_KEY: ""
+ACTUATOR_API_KEY: ""

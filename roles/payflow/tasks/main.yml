@@ -1,0 +1,7 @@
+- name: Create configuration file in user's home directory
+  ansible.builtin.template:
+    src: payflow.conf.j2
+    dest: /appdir/payflow/payflow.conf
+    owner: payflow
+    group: payflow
+    mode: "640"

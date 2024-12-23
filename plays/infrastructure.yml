@@ -1,0 +1,8 @@
+- name: Deploy Payflow Application
+  hosts: dfs,dfs_new
+  become: true
+  vars_files:
+    - "roles/payflow/vars/payflow-{{ environment }}.yml"
+    - "roles/payflow/vars/payflow-secrets-{{ environment }}.yml"
+  roles:
+    - payflow

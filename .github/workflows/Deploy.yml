@@ -33,7 +33,9 @@ jobs:
 
     - name: Deploy Payflow
       run: |
-        ansible-playbook -i inventory/development plays/infrastructure.yml \
+        echo "payflow_dev" > vault_password.txt
+        ansible-playbook -i inventory.ini plays/infrastructure.yml \
           -e "environment=${{ inputs.environment }}" \
-          -l ${{ inputs.target }} \
-          --vault-password-file vault_pass.txt
+          -l ${{ inputs.target }} -t payflow \
+          --vault-password-file vault_pass.txt -CD -k
+        rm -f vault_password.txt

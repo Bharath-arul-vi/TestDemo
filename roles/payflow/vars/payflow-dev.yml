@@ -1,0 +1,2 @@
+payflow_run_args: "--spring.profiles.active=dev"
+payflow_base_url: "https://api-dev.datatrans.biz"
