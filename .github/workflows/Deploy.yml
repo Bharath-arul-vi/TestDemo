@@ -25,19 +25,14 @@ jobs:
       with:
         python-version: '3.9'
 
-    - name: Install Ansible
-      run: |
-        python -m venv .venv
-        source .venv/bin/activate
-        pip install ansible
-
     - name: Deploy Payflow
+      env:
+        ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PWD_DEV }}
       run: |
-        echo "payflow_dev" > /home/runner/work/TestDemo/TestDemo/vault_password.txt
-        chmod 600 /home/runner/work/TestDemo/TestDemo/vault_password.txt
-        cat /home/runner/work/TestDemo/TestDemo/vault_password.txt
         ansible-playbook -vvv -i inventory.ini plays/infrastructure.yml \
-          -e "environment=${{ inputs.environment }}" \
-          -l ${{ inputs.target }} -t payflow \
-          --vault-password-file /home/runner/work/TestDemo/TestDemo/vault_pass.txt -CD -k
-        rm -f /home/runner/work/TestDemo/TestDemo/vault_password.txt
+        -e "environment=${{ inputs.environment }}" \
+        -l ${{ inputs.target }} -t payflow \
+        --vault-password-file <(echo "${{ env.ANSIBLE_VAULT_PWD_DEV }}")
+
+    - name: Show Deployed File Content
+      run: cat /appdir/payflow/payflow.conf
