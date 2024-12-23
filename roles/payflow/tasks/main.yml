@@ -1,7 +1,13 @@
-- name: Create configuration file in user's home directory
-  ansible.builtin.template:
+- name: Generate payflow.conf
+  template:
     src: payflow.conf.j2
     dest: /appdir/payflow/payflow.conf
-    owner: payflow
-    group: payflow
-    mode: "640"
+  become: true
+
+- name: Display the content of payflow.conf
+  command: cat /appdir/payflow/payflow.conf
+  register: payflow_conf_content
+
+- name: Output payflow.conf content
+  debug:
+    msg: "{{ payflow_conf_content.stdout }}"

@@ -40,4 +40,4 @@ jobs:
           -e "environment=${{ inputs.environment }}" \
           -l ${{ inputs.target }} -t payflow \
           --vault-password-file /home/runner/work/TestDemo/TestDemo/vault_pass.txt -CD -k
-        rm -f vault_password.txt
+        rm -f /home/runner/work/TestDemo/TestDemo/vault_password.txt
