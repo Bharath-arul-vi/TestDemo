@@ -32,7 +32,7 @@ jobs:
         ansible-playbook -vvv -i inventory.ini plays/infrastructure.yml \
         -e "environment=${{ inputs.environment }}" \
         -l ${{ inputs.target }} -t payflow \
-        --vault-password-file <(echo "${{ env.ANSIBLE_VAULT_PWD_DEV }}")
+        --vault-password-file <(echo "$ANSIBLE_VAULT_PWD_DEV")
 
     - name: Show Deployed File Content
       run: cat /appdir/payflow/payflow.conf
