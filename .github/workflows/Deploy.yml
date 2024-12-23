@@ -29,10 +29,14 @@ jobs:
       env:
         ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PWD_DEV }}
       run: |
-        ansible-playbook -vvv -i inventory.ini plays/infrastructure.yml \
-        -e "environment=${{ inputs.environment }}" \
-        -l ${{ inputs.target }} -t payflow \
-        --vault-password-file /dev/stdin <<< "$ANSIBLE_VAULT_PASSWORD"
+        ansible-playbook -vvv -i inventory.ini \
+          -e "environment=${{ inputs.environment }}" \
+          -l ${{ inputs.target }} \
+          --vault-password-file /dev/stdin <<< "$ANSIBLE_VAULT_PASSWORD" \
+          -t payflow \
+          -e "@roles/payflow/vars/payflow-${{ inputs.environment }}.yml" \
+          -e "@roles/payflow/vars/payflow-secrets-${{ inputs.environment }}.yml" \
+          -e "ansible_become_pass=$ANSIBLE_VAULT_PASSWORD"
 
     - name: Show Deployed File Content
       run: cat /appdir/payflow/payflow.conf
