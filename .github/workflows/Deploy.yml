@@ -33,11 +33,11 @@ jobs:
 
     - name: Deploy Payflow
       run: |
-        echo "payflow_dev" > vault_password.txt
-        chmod 600 vault_password.txt
-        cat vault_password.txt
+        echo "payflow_dev" > /home/runner/work/TestDemo/TestDemo/vault_password.txt
+        chmod 600 /home/runner/work/TestDemo/TestDemo/vault_password.txt
+        cat /home/runner/work/TestDemo/TestDemo/vault_password.txt
         ansible-playbook -vvv -i inventory.ini plays/infrastructure.yml \
           -e "environment=${{ inputs.environment }}" \
           -l ${{ inputs.target }} -t payflow \
-          --vault-password-file vault_pass.txt -CD -k
+          --vault-password-file /home/runner/work/TestDemo/TestDemo/vault_pass.txt -CD -k
         rm -f vault_password.txt
