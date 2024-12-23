@@ -1,0 +1,39 @@
+name: Deploy Payflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy (e.g., dev, prod)'
+        required: true
+        default: dev
+      target:
+        description: 'Target hosts to deploy (e.g., dfs1-dev)'
+        required: true
+        default: dfs1-dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install Ansible
+      run: |
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install ansible
+
+    - name: Deploy Payflow
+      run: |
+        ansible-playbook -i inventory/development plays/infrastructure.yml \
+          -e "environment=${{ inputs.environment }}" \
+          -l ${{ inputs.target }} \
+          --vault-password-file vault_pass.txt
