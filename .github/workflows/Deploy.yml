@@ -98,6 +98,7 @@ jobs:
           else
             echo "Error: Invalid environment type."
             exit 1
+          fi
 
   approve-prod-deployment:
     if: ${{ github.event.inputs.environment_type == 'prod' }}
