@@ -50,6 +50,9 @@ jobs:
       contents: write
 
     steps:
+      - name: Check connectivity to GitHub
+        run: curl -v https://api.github.com/repos/peter-evans/create-issue
+        
       - name: Checkout Code
         uses: actions/checkout@v3
 
