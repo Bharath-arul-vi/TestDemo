@@ -49,7 +49,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       # Step 1: Validate Inputs
       - name: Validate Inputs
@@ -67,7 +67,7 @@ jobs:
       # Step 2: Create GitHub Issue for Approval
       - name: Create GitHub Issue
         id: create_issue
-        uses: peter-evans/create-issue@v4
+        uses: peter-evans/create-issue@v3
         with:
           title: "Production Deployment Approval Required"
           body: |
