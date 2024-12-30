@@ -50,11 +50,9 @@ jobs:
       contents: write
 
     steps:
-      - name: Check connectivity to GitHub
-        run: curl -v https://api.github.com/repos/peter-evans/create-issue
         
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
       # Step 1: Validate Inputs
       - name: Validate Inputs
@@ -72,14 +70,12 @@ jobs:
       # Step 2: Create GitHub Issue for Approval
       - name: Create GitHub Issue
         id: create_issue
-        uses: peter-evans/create-issue@v3
-        with:
-          title: "Production Deployment Approval Required"
-          body: |
-            A production deployment for `${{ github.event.inputs.prod_environment }}` has been triggered.
-            **Action Required:**
-            - Add the `approved` label to this issue to approve the deployment.
-          labels: "approval"
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues \
+            -d '{"title":"Production Deployment Approval Required","body":"A production deployment for `${{ github.event.inputs.prod_environment }}` has been triggered.\n\n**Action Required:**\n- Add the `approved` label to this issue to approve the deployment.","labels":["approval"]}'
 
       # Step 3: Wait for Approval
       - name: Wait for Approval
