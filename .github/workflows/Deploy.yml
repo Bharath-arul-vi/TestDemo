@@ -66,6 +66,7 @@ jobs:
           else
             echo "Non-prod deployment detected. Proceeding without approval."
             exit 0
+          fi
 
       # Step 2: Create GitHub Issue for Approval
       - name: Create GitHub Issue
