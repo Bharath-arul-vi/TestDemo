@@ -89,10 +89,6 @@ jobs:
               echo "Error: You must select a production environment."
               exit 1
             fi
-            if [[ "${{ github.ref_type }}" != "tag" ]]; then
-              echo "Error: Production deployments can only be triggered by tags, not branches."
-              exit 1
-            fi
             echo "TARGET_ENVIRONMENT=${{ github.event.inputs.prod_environment }}" >> $GITHUB_ENV
             echo "target_environment=${{ github.event.inputs.prod_environment }}" >> $GITHUB_OUTPUT
           else
