@@ -45,6 +45,12 @@ env:
 
 jobs:
   application-deployment:
+    strategy:
+      max-parallel: 1
+      matrix:
+        envs: [Production]
+    environment:
+      name: ${{ matrix.envs }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -67,61 +73,6 @@ jobs:
             echo "Non-prod deployment detected. Proceeding without approval."
             exit 0
           fi
-
-      # Step 2: Create GitHub Issue for Approval
-      - name: Create GitHub Issue
-        id: create_issue
-        run: |
-          run: |
-          curl -X POST \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${GITHUB_REPOSITORY}/issues \
-            -d "{
-                  \"title\": \"Production Deployment Approval Required\",
-                  \"body\": \"A production deployment for \`${{ github.event.inputs.prod_environment }}\` has been triggered.\n\n**Action Required:**\n- Add the \`approved\` label to this issue to approve the deployment.\",
-                  \"labels\": [\"approval\"],
-                  \"assignees\": [\"Bharath-arul-vi\"]
-                }"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-
-      # Step 3: Wait for Approval
-      - name: Wait for Approval
-        id: wait_approval
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const issue_number = ${{ steps.create_issue.outputs.issue-number }};
-            const label_to_wait = 'approved';
-            const timeout = 7200; // Timeout in seconds (e.g., 2 hours)
-            const interval = 60;  // Polling interval in seconds
-
-            const startTime = Date.now();
-
-            while ((Date.now() - startTime) / 1000 < timeout) {
-              // Fetch the current state of the issue
-              const { data: issue } = await github.rest.issues.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue_number,
-              });
-
-              // Check if the 'approved' label is present
-              const labels = issue.labels.map(label => label.name);
-              if (labels.includes(label_to_wait)) {
-                console.log(`Issue #${issue_number} has been approved.`);
-                return;
-              }
-
-              console.log(`Waiting for approval on issue #${issue_number}...`);
-              // Wait for the specified interval before checking again
-              await new Promise(resolve => setTimeout(resolve, interval * 1000));
-            }
-
-            // If timeout is reached without approval, fail the step
-            core.setFailed(`Timed out waiting for approval on issue #${issue_number}.`);
 
       # Step 4: Proceed After Approval
       - name: Continue Deployment
