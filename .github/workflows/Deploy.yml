@@ -46,7 +46,8 @@ env:
 jobs:
   application-deployment:
     runs-on: ubuntu-latest
-  
+    environment:
+      name: ${{ github.event.inputs.environment_type == 'production' && 'production' || 'development-or-sandbox' }}
     steps:
         
       - name: Checkout Code
@@ -65,14 +66,7 @@ jobs:
             echo "Non-prod deployment detected. Proceeding without approval."
             exit 0
           fi
-          
-       # Step 2: Environment-based Approval (For Production)
-      - name: Wait for Approval (Production)
-        if: ${{ github.event.inputs.environment_type == 'production' }}
-        environment:
-          name: production
-          url: ${{ github.event.inputs.prod_environment }}
-        run: echo "Approval received. Proceeding with deployment."
+      
 
       # Step 4: Proceed After Approval
       - name: Continue Deployment
