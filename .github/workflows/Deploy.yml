@@ -47,7 +47,7 @@ jobs:
   application-deployment:
     runs-on: ubuntu-latest
     environment:
-      name: ${{ github.event.inputs.environment_type == 'production' && 'production' || 'development-or-sandbox' }}
+      name: ${{ github.event.inputs.environment_type == 'production' && 'production'}}
     steps:
         
       - name: Checkout Code
