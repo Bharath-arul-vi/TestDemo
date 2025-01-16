@@ -10,7 +10,7 @@ on:
         options:
           - development
           - sandbox
-          - prod
+          - production
 
       development_environment:
         description: 'Select the development environment'
@@ -45,12 +45,8 @@ env:
 
 jobs:
   application-deployment:
-    strategy:
-      max-parallel: 1
-      matrix:
-        envs: [Production]
     environment:
-      name: ${{ matrix.envs }}
+      name: production
     runs-on: ubuntu-latest
     permissions:
       contents: write
