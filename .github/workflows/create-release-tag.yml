@@ -1,80 +1,42 @@
-name: Release Workflow
+name: Deploy to Production
 
 on:
   workflow_dispatch:
     inputs:
-      release_version:
-        description: "Release version (e.g., v0.0.1)"
-        required: false
+      environment_type:
+        description: 'Select environment to deploy to'
+        required: true
+        default: 'dev'
+        type: string
+        options:
+          - dev
+          - staging
+          - prod
 
 jobs:
-  release:
+  notify:
+    if: ${{ github.event.inputs.environment_type == 'prod' }}
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
+      - name: Send Slack Notification to Approvers
+        uses: slackapi/slack-github-action@v1.22.0
+        with:
+          slack-message: |
+            🚨 *Approval Needed:* Deployment to production is waiting for approval. Please review and approve it in GitHub.
+          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-    - name: Set Up Git
-      run: |
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
+  deploy:
+    needs: notify
+    if: ${{ github.event.inputs.environment_type == 'prod' }}
+    runs-on: ubuntu-latest
+    environment: 
+      name: production
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Determine Release Version
-      id: determine-version
-      run: |
-        # Check if release_version input is provided
-        if [[ -z "${{ github.event.inputs.release_version }}" ]]; then
-          echo "No release version provided. Incrementing version from version.txt..."
-
-          # Fetch current version from version.txt
-          CURRENT_VERSION=$(cat version.txt)
-          echo "Current version: $CURRENT_VERSION"
-
-          # Increment the patch version
-          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
-          PATCH_VERSION=${VERSION_PARTS[2]}
-          NEW_PATCH_VERSION=$((PATCH_VERSION + 1))
-          NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$NEW_PATCH_VERSION"
-        else
-          # Use provided release_version
-          NEW_VERSION="${{ github.event.inputs.release_version }}"
-          echo "Using provided release version: $NEW_VERSION"
-        fi
-
-        # Output the new version
-        echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-
-    - name: Check if Tag Already Exists
-      id: tag_check
-      run: |
-        git fetch --tags  # Fetch all tags from the remote
-        TAG_NAME="payflow-release-${{ env.NEW_VERSION }}"
-        if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-          echo "Tag $TAG_NAME already exists."
-          echo "tag_exists=true" >> $GITHUB_ENV
-        else
-          echo "tag_exists=false" >> $GITHUB_ENV
-        fi
-
-    - name: Create Git Tag
-      if: env.tag_exists == 'false'
-      run: |
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
-        git tag "payflow-release-${{ env.NEW_VERSION }}"
-        git push origin "payflow-release-${{ env.NEW_VERSION }}"
-        
-    - name: Update version.txt
-      if: env.tag_exists == 'false'
-      run: |
-        echo "${{ env.NEW_VERSION }}" > version.txt
-        cat version.txt
-        git add version.txt
-        git commit -m "Release version ${{ env.NEW_VERSION }}"
-        git push origin main
-
-    - name: Notify if Tag Exists
-      if: env.tag_exists == 'true'
-      run: |
-        echo "Error: The tag payflow-release-${{ env.NEW_VERSION }} already exists."
-        exit 1
+      - name: Deploy to Production
+        run: |
+          echo "Deploying to production..."
+        env:
+          DEPLOY_ENV: prod
