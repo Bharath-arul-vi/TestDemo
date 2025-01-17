@@ -98,7 +98,7 @@ jobs:
 
   application-deployment:
     environment:
-      name: ${{ github.event.inputs.environment_type == 'prod' && 'prod'} || 'Dev'}
+      name: ${{ github.event.inputs.environment_type == 'prod' && 'prod' || 'Dev'}}
     runs-on:
       group: onprem-infra-zurichNP
 
