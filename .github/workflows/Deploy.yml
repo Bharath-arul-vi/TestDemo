@@ -62,7 +62,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const { github, context } = require('@actions/github');
+            const { context } = require('@actions/github');
       
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
@@ -74,6 +74,7 @@ jobs:
                 approved: 'true'
               }
             });
+
 
 
 
