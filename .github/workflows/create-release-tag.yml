@@ -63,17 +63,26 @@ env:
 
 
 jobs:
-  wait-for-approval:
+  watchdog:
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ github.event.inputs.environment_type == 'prod' && 'Production' }}
     steps:
-      - name: Check if Approved
-        run: echo "Deployment approved and proceeding."
+      - name: Wait for 2 Minutes
+        run: sleep 120
+
+      - name: Cancel Workflow if Not Approved
+        run: |
+          echo "Checking if approval has been granted..."
+          if [[ "$(gh run view ${{ github.run_id }} --json conclusion -q '.conclusion')" == "null" ]]; then
+            echo "Approval not granted within timeout. Cancelling workflow."
+            gh run cancel ${{ github.run_id }}
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   application-deployment:
     runs-on: ubuntu-latest
-    needs: wait-for-approval
+    environment:
+      name: ${{ github.event.inputs.environment_type == 'prod' && 'production' }}
     timeout-minutes: 2
 
     outputs:
