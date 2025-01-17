@@ -63,18 +63,21 @@ jobs:
         with:
           script: |
             const { GITHUB_TOKEN } = process.env;
-            const octokit = require('@octokit/rest')({ auth: GITHUB_TOKEN });
+            const { Octokit } = require('@octokit/rest');
+      
+            const octokit = new Octokit({ auth: GITHUB_TOKEN });
       
             await octokit.actions.createWorkflowDispatch({
               owner: 'your-github-org',
               repo: 'your-repo-name',
               workflow_id: 'manual-payflow-deployment.yml',
-              ref: 'main', # or any branch you're working on
+              ref: 'main', // Specify the branch
               inputs: {
                 environment_type: 'prod',
                 approved: 'true'
               }
             });
+
 
 
       # Step 1: Validate Inputs
