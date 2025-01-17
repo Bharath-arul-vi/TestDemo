@@ -67,6 +67,9 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.event.inputs.environment_type == 'prod' && 'Production' }}
+    steps:
+      - name: Check if Approved
+        run: echo "Deployment approved and proceeding."
 
   application-deployment:
     runs-on: ubuntu-latest
