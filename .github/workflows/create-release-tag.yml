@@ -67,34 +67,12 @@ jobs:
     if: ${{ github.event.inputs.environment_type == 'prod' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Send Notification to Slack
-        shell: bash
+      - name: Send Slack Notification to Approvers
         run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": ":warning: *Approval Needed:* Deployment to production is waiting for approval. Please review the request in GitHub."
-                  }
-                },
-                {
-                  "type": "actions",
-                  "elements": [
-                    {
-                      "type": "button",
-                      "text": {
-                        "type": "plain_text",
-                        "text": "Review Request"
-                      },
-                      "url": "https://github.com/{{ github.repository }}/actions/runs/{{ github.run_id }}"
-                    }
-                  ]
-                }
-              ]
-            }' ${{ secrets.SLACK_RELEASE_WEBHOOK }}
+          curl -X POST -H 'Content-type: application/json' --data '{
+            "text": "🚨 *Approval Needed:* Deployment to production is waiting for approval. Please review the request and approve it in GitHub."
+          }' ${{ secrets.SLACK_WEBHOOK_URL }}
+
 
   application-deployment:
     environment:
