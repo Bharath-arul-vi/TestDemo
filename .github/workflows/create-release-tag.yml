@@ -1,42 +1,289 @@
-name: Deploy to Production
+name: Manual payflow deployment
 
 on:
   workflow_dispatch:
     inputs:
       environment_type:
-        description: 'Select environment to deploy to'
+        description: 'Select the type of environment'
         required: true
-        default: 'dev'
-        type: string
+        type: choice
         options:
-          - dev
-          - staging
+          - development
+          - sandbox
           - prod
+
+      development_environment:
+        description: 'Select the development environment'
+        required: false
+        type: choice
+        options:
+          - ""
+          - Dev_server_dfs1_dev
+          - Dev_server_dfs2_dev
+
+      sandbox_environment:
+        description: 'Select the sandbox environment'
+        required: false
+        type: choice
+        options:
+          - ""
+          - UK_sandbox_001_crx_t_dfs_l
+          - UK_sandbox_001_chn_t_dfs_l
+
+      prod_environment:
+        description: 'Select the production environment'
+        required: false
+        type: choice
+        options:
+          - ""
+          - UK_prod_001_crx_p_dfs_l
+          - UK_prod_001_chn_p_dfs_l
+
+      create_release_tag:
+        description: 'Should create a release tag?'
+        required: true
+        type: boolean
+        default: false
+
+      deploy_active_server:
+        description: 'Should deploy in active server?'
+        required: true
+        type: boolean
+        default: false
+
+env:
+  JAVA_VERSION: 21
+  MAVEN_VERSION: 3.9.5
+  SLACK_RELEASE_WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK }}
+  X_API_KEY_SANDBOX: ${{ secrets.X_API_KEY_SANDBOX }}
+  X_API_KEY_DEV: ${{ secrets.X_API_KEY_DEV }}
+  X_API_KEY_PROD: ${{ secrets.X_API_KEY_PROD }}
+  ACTIONS_RUNNER_DEBUG: true
+  ACTIONS_STEP_DEBUG: true
+
 
 jobs:
   notify:
     if: ${{ github.event.inputs.environment_type == 'prod' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Send Slack Notification to Approvers
-        uses: slackapi/slack-github-action@v1.22.0
-        with:
-          slack-message: |
-            🚨 *Approval Needed:* Deployment to production is waiting for approval. Please review and approve it in GitHub.
-          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  deploy:
-    needs: notify
-    if: ${{ github.event.inputs.environment_type == 'prod' }}
-    runs-on: ubuntu-latest
-    environment: 
-      name: production
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Deploy to Production
+      - name: Send Notification to Slack
+        shell: bash
         run: |
-          echo "Deploying to production..."
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":warning: *Approval Needed:* Deployment to production is waiting for approval. Please review the request in GitHub."
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Review Request"
+                      },
+                      "url": "https://github.com/{{ github.repository }}/actions/runs/{{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }' ${{ secrets.SLACK_RELEASE_WEBHOOK }}
+
+  application-deployment:
+    environment:
+      name: ${{ github.event.inputs.environment_type == 'prod' && 'prod'} || 'Dev'}
+    runs-on:
+      group: onprem-infra-zurichNP
+
+    outputs:
+      branch: ${{ steps.set-branch.outputs.branch }}
+      api_url: ${{ steps.set-api-url.outputs.api_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set Branch Environment Variable
+        id: set-branch
+        run: |
+          echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT 
+
+      - name: Setup Java and Maven
+        uses: ./.github/actions/setup-java-maven
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          maven-version: ${{ env.MAVEN_VERSION }}
+
+      - name: Validate Inputs
+        run: |
+          if [[ "${{ github.event.inputs.environment_type }}" == "development" ]]; then
+            if [[ -z "${{ github.event.inputs.development_environment }}" ]]; then
+              echo "Error: You must select a development environment."
+              exit 1
+            fi
+            echo "TARGET_ENVIRONMENT=${{ github.event.inputs.development_environment }}" >> $GITHUB_ENV
+          elif [[ "${{ github.event.inputs.environment_type }}" == "sandbox" ]]; then
+            if [[ -z "${{ github.event.inputs.sandbox_environment }}" ]]; then
+              echo "Error: You must select a sandbox environment."
+              exit 1
+            fi
+            echo "TARGET_ENVIRONMENT=${{ github.event.inputs.sandbox_environment }}" >> $GITHUB_ENV
+          elif [[ "${{ github.event.inputs.environment_type }}" == "prod" ]]; then
+            if [[ -z "${{ github.event.inputs.prod_environment }}" ]]; then
+              echo "Error: You must select a prod environment."
+              exit 1
+            fi
+            echo "TARGET_ENVIRONMENT=${{ github.event.inputs.prod_environment }}" >> $GITHUB_ENV
+          else
+            echo "Error: Invalid environment type."
+            exit 1
+          fi
+
+      - name: Deploy to Development or Sandbox
+        if: ${{ github.event.inputs.environment_type != 'prod' }}
+        run: echo "Deploying to ${{ env.TARGET_ENVIRONMENT }}..."
+
+
+      - name: Continue Deployment
+        if: ${{ github.event.inputs.environment_type == 'prod' && steps.wait_approval.outcome == 'success' }}
+        run: |
+          echo "Approval received. Proceeding with deployment."
+          echo "Deployment Target: ${{ env.TARGET_ENVIRONMENT }}"
+
+      - name: Set Deployment Server for selected Environments
+        run: |
+          TARGET_GROUP="${{ env.TARGET_ENVIRONMENT }}"
+          echo "Looking up host for group: $TARGET_GROUP"
+          TARGET_HOST=$(ansible-inventory -i .github/deploy/inventory.ini --list | jq -r ".\"$TARGET_GROUP\".hosts[0]")
+          if [ -z "$TARGET_HOST" ]; then
+            echo "Error: No host found for group '$TARGET_GROUP'."
+            exit 1
+          fi
+          echo "TARGET_SERVER=$TARGET_HOST" >> $GITHUB_ENV
+          echo "Target server set to: $TARGET_HOST"
+
+      - name: Notify Deployment Started
+        uses: ./.github/actions/slack-notify
+        with:
+          message: "Payflow Deployment Started."
+          branch: "${{ env.BRANCH }}"
+          environment: "${{ env.TARGET_SERVER }}"
+          slack_webhook_url: "${{ env.SLACK_RELEASE_WEBHOOK }}"
+
+      - name: Set api url and key values
+        id: set-api-url
+        run: |
+          if [[ "${{ github.event.inputs.environment_type }}" == "sandbox" ]]; then
+            API_URL="https://api.sandbox.datatrans.com"
+            X_API_KEY=${{ env.X_API_KEY_SANDBOX }}
+          elif [[ "${{ github.event.inputs.environment_type }}" == "development" ]]; then
+            API_URL="https://api-dev.datatrans.biz"
+            X_API_KEY=${{ env.X_API_KEY_DEV }}
+          elif [[ "${{ github.event.inputs.environment_type }}" == "prod" ]]; then
+            API_URL="https://api-uk.datatrans.com"
+            X_API_KEY=${{ env.X_API_KEY_PROD }}
+          else
+            echo "Error: Unsupported environment type '${{ github.event.inputs.environment_type }}'."
+            exit 1
+          fi
+          
+          echo "API_URL is: $API_URL"
+          echo "X_API_KEY is: $X_API_KEY"
+          echo "API_URL=$API_URL" >> $GITHUB_ENV
+          echo "X_API_KEY=$X_API_KEY" >> $GITHUB_ENV
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+
+      - name: Determine Active Server
+        if: ${{ github.event.inputs.environment_type != 'development' && github.event.inputs.deploy_active_server == 'false' }}
+        run: |
+          ACTIVE_SERVER=$(curl -s "${{ env.API_URL }}/payflow/actuator/info?X-API-KEY=${{ env.X_API_KEY }}" | jq -r '.activeServer // empty')
+          if [[ -z "$ACTIVE_SERVER" ]]; then
+            echo "Error: Unable to determine active server from the API."
+            exit 1
+          fi
+          
+          if [[ "${{ env.TARGET_SERVER }}" == "$ACTIVE_SERVER" ]]; then
+            echo "Error: You are attempting to deploy to the active server '$ACTIVE_SERVER'. Deployment is not allowed." | tee /tmp/error_message.txt
+            curl -X POST -H 'Content-type: application/json' \
+              --data '{
+                "blocks": [
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": ":red_circle: *Deployment Error:* You are attempting to deploy to the active server '$ACTIVE_SERVER'. Deployment is not allowed."
+                    }
+                  }
+                ]
+              }' "${{ env.SLACK_RELEASE_WEBHOOK }}"
+            exit 1
+          fi
+          
+          echo "ACTIVE_SERVER=$ACTIVE_SERVER" >> $GITHUB_ENV
+          echo "Active server": $ACTIVE_SERVER
+
+      - name: Build the Application
         env:
-          DEPLOY_ENV: prod
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn package -DskipITs -DskipTests -Djansi.tmpdir=/var/tmp
+
+      - name: Deploy to Target Server
+        run: |
+          TARGET_SERVER="${{ env.TARGET_SERVER }}"
+          echo "Deploying to server: $TARGET_SERVER"
+          
+          ansible-playbook -i .github/deploy/inventory.ini .github/deploy/ansible-deployment-playbook.yml --limit $TARGET_SERVER -vvvv
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: 'False'
+
+      - name: Validate Deployment
+        if: ${{ github.event.inputs.environment_type != 'development' }}
+        run: |
+          curl -f "${{ env.API_URL }}/payflow/actuator/health?X-API-KEY=${{ env.X_API_KEY }}" || (echo "Health check failed" && exit 1)
+
+      - name: Notify Deployment Success
+        if: success()
+        uses: ./.github/actions/slack-notify
+        with:
+          message: "Payflow Deployment Successful"
+          branch: "${{ env.BRANCH }}"
+          environment: "${{ env.TARGET_SERVER }}"
+          slack_webhook_url: "${{ env.SLACK_RELEASE_WEBHOOK }}"
+
+
+  create-release-tag:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.create_release_tag == 'true' }}
+    needs: [ application-deployment ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Debug Outputs
+        run: |
+          echo "Branch: ${{ needs.application-deployment.outputs.branch }}"  
+          echo "API URL: ${{ needs.application-deployment.outputs.api_url }}"
+
+      - name: Trigger the workflow using GitHub API
+        run: |
+          curl -X POST \
+          -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/weareplanet/payflow/actions/workflows/create-release-tag.yml/dispatches \
+          -d '{
+            "ref": "${{ needs.application-deployment.outputs.branch }}",
+            "inputs": {
+              "branch": "${{ needs.application-deployment.outputs.branch }}"
+            }
+          }'
