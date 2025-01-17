@@ -67,16 +67,39 @@ jobs:
     if: ${{ github.event.inputs.environment_type == 'prod' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Send Slack Notification to Approvers
+      - name: Send Notification to Slack
+        shell: bash
         run: |
-          curl -X POST -H 'Content-type: application/json' --data '{
-            "text": "🚨 *Approval Needed:* Deployment to production is waiting for approval. Please review the request and approve it in GitHub."
-          }' ${{ secrets.SLACK_WEBHOOK_URL }}
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":warning: *Approval Needed:* Deployment to production is waiting for approval. Please review the request in GitHub."
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Review Request"
+                      },
+                      "url": "https://github.com/{{ github.repository }}/actions/runs/{{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }' ${{ secrets.SLACK_RELEASE_WEBHOOK }}
 
 
   application-deployment:
     environment:
-      name: ${{ github.event.inputs.environment_type == 'prod' && 'prod' || 'Dev'}}
+      name: ${{ github.event.inputs.environment_type == 'prod' && 'prod'}}
     runs-on:
       group: onprem-infra-zurichNP
 
