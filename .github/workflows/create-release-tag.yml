@@ -94,14 +94,13 @@ jobs:
                   ]
                 }
               ]
-            }' ${{ secrets.SLACK_RELEASE_WEBHOOK }}
+            }' ${{ secrets.SLACK_WEBHOOK_URL }}
 
 
   application-deployment:
     environment:
-      name: ${{ github.event.inputs.environment_type == 'prod' && 'prod'}}
-    runs-on:
-      group: onprem-infra-zurichNP
+      name: ${{ github.event.inputs.environment_type == 'prod' && 'prod' || 'Dev' }}
+    runs-on: ubuntu-latest
 
     outputs:
       branch: ${{ steps.set-branch.outputs.branch }}
