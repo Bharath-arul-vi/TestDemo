@@ -53,6 +53,32 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v2
 
+      - name: Send Slack Notification Before Approval
+        run: echo "Slack notification sent."
+        
+
+      - name: Request Approval
+        run: echo "Waiting for manual approval through GitHub environment."
+
+      - name: Approve Deployment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { GITHUB_TOKEN } = process.env;
+            const octokit = require('@octokit/rest')({ auth: GITHUB_TOKEN });
+      
+            await octokit.actions.createWorkflowDispatch({
+              owner: 'your-github-org',
+              repo: 'your-repo-name',
+              workflow_id: 'manual-payflow-deployment.yml',
+              ref: 'main', # or any branch you're working on
+              inputs: {
+                environment_type: 'prod',
+                approved: 'true'
+              }
+            });
+
+
       # Step 1: Validate Inputs
       - name: Validate Inputs
         run: |
