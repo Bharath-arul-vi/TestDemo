@@ -81,23 +81,23 @@ jobs:
             status=$(echo "$response" | jq -r '.status // "unknown"')
             conclusion=$(echo "$response" | jq -r '.conclusion // "none"')
             
-            # Check if the `jobs` array is present and contains the job of interest
-            approval_step_status=$(echo "$response" | jq -r '.jobs[]? | select(.name=="application-deployment").status // "unknown"')
-            approval_step_conclusion=$(echo "$response" | jq -r '.jobs[]? | select(.name=="application-deployment").conclusion // "none"')
-          
-            echo "Workflow status: $status"
-            echo "Workflow conclusion: $conclusion"
-            echo "Approval step status: $approval_step_status"
+            approval_step_conclusion=$(echo "$response" | jq -r '.jobs[] | select(.name=="application-deployment") | .conclusion // "null"')
+
             echo "Approval step conclusion: $approval_step_conclusion"
-          
-            if [[ "$approval_step_status" == "completed" ]]; then
-              if [[ "$approval_step_conclusion" == "success" ]]; then
-                echo "Approval granted. Proceeding with deployment."
-                exit 0
-              elif [[ "$approval_step_conclusion" == "failure" || "$approval_step_conclusion" == "cancelled" ]]; then
-                echo "Approval rejected or deployment cancelled."
-                exit 1
-              fi
+            
+            # Check the conclusion of the approval step
+            if [[ "$approval_step_conclusion" == "success" ]]; then
+              echo "Approval granted. Proceeding with deployment."
+              exit 0
+            elif [[ "$approval_step_conclusion" == "failure" || "$approval_step_conclusion" == "cancelled" ]]; then
+              echo "Approval rejected or deployment cancelled."
+              exit 1
+            elif [[ "$approval_step_conclusion" == "null" ]]; then
+              echo "Approval or rejection is still pending..."
+              # Optionally handle the pending state by continuing the loop or waiting further
+            else
+              echo "Unexpected approval step conclusion: $approval_step_conclusion"
+              exit 1
             fi
   
             echo "Approval or rejection is still pending..."
