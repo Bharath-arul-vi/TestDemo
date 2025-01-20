@@ -103,15 +103,14 @@ jobs:
             fi
   
             echo "Approval or rejection is still pending..."
-            sleep 60
+            sleep 10
           done
           echo "Timeout reached without approval or rejection."
-          echo "${{ steps.sleep-until-approval.outcome }}"
           exit 1
 
       - name: Handle Approval Timeout or Rejection
-        if: ${{ steps.sleep-until-approval.outcome == 'failure' }}
         run: |
+          echo "${{ steps.sleep-until-approval.outcome }}"
           echo "Approval not granted within timeout or rejected. Cancelling workflow."
           curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                -H "Accept: application/vnd.github.v3+json" \
