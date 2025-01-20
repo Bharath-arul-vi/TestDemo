@@ -104,11 +104,12 @@ jobs:
   
             echo "Approval or rejection is still pending..."
             sleep 10
-          done
+          timeout="true"  # Timeout after 30 minutes without approval/rejection
           echo "Timeout reached without approval or rejection."
-          exit 1
+          echo "::set-output name=timeout::$timeout"
 
       - name: Handle Approval Timeout or Rejection
+        if: ${{ steps.sleep-until-approval.outputs.timeout == 'true' }}
         run: |
           echo "${{ steps.sleep-until-approval.outcome }}"
           echo "Approval not granted within timeout or rejected. Cancelling workflow."
