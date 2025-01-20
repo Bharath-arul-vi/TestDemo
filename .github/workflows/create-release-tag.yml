@@ -80,9 +80,13 @@ jobs:
   
             conclusion=$(echo "$response" | jq -r '.conclusion')
             status=$(echo "$response" | jq -r '.status')
-
-            echo "Current status: $status"
-            echo "Current conclusion: $conclusion"
+            approval_step_status=$(echo "$response" | jq -r '.jobs[] | select(.name=="application-deployment").status')
+            approval_step_conclusion=$(echo "$response" | jq -r '.jobs[] | select(.name=="application-deployment").conclusion')
+  
+            echo "Workflow status: $status"
+            echo "Workflow conclusion: $conclusion"
+            echo "Approval step status: $approval_step_status"
+            echo "Approval step conclusion: $approval_step_conclusion"
             
             if [[ "$status" == "completed" ]]; then
               if [[ "$conclusion" == "success" ]]; then
