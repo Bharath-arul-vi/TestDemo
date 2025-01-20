@@ -107,6 +107,7 @@ jobs:
           timeout="true"  # Timeout after 30 minutes without approval/rejection
           echo "Timeout reached without approval or rejection."
           echo "::set-output name=timeout::$timeout"
+          exit 0
 
       - name: Handle Approval Timeout or Rejection
         if: ${{ steps.sleep-until-approval.outputs.timeout == 'true' }}
