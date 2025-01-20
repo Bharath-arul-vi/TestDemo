@@ -80,9 +80,11 @@ jobs:
   
             status=$(echo "$response" | jq -r '.status // "unknown"')
             conclusion=$(echo "$response" | jq -r '.conclusion // "none"')
-            
+
+            approval_step_status=$(echo "$response" | jq -r '.jobs[] | select(.name=="application-deployment") | .status // "null"')
             approval_step_conclusion=$(echo "$response" | jq -r '.jobs[] | select(.name=="application-deployment") | .conclusion // "null"')
 
+            echo "Approval step status :  $approval_step_status "
             echo "Approval step conclusion: $approval_step_conclusion"
             
             # Check the conclusion of the approval step
