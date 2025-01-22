@@ -40,11 +40,14 @@ jobs:
         shell: bash
 
 
-      - name: Generate Release Notes
-        id: generate-notes
+      - name: Get Release Notes
         run: |
           notes=$(git log --oneline ${previous_tag}..HEAD)
-          echo "release_notes=${notes}" >> $GITHUB_ENV
+          echo "release_notes<<EOF" >> $GITHUB_ENV
+          echo "${notes}" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        shell: bash
+
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
@@ -57,3 +60,7 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print Release Notes
+        run: echo "${{ env.release_notes }}"
+
