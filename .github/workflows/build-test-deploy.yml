@@ -12,16 +12,33 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set Up Git
         run: |
           git fetch --tags
 
-      - name: Determine Previous Tag
-        id: get-previous-tag
+      - name: Get Previous Tag
         run: |
-          previous_tag=$(git describe --tags --abbrev=0 HEAD^)
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            previous_tag=$(git describe --tags --abbrev=0 HEAD^)
+          else
+            previous_tag="none"
+          fi
           echo "previous_tag=${previous_tag}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Check for Tags
+        run: |
+          if [ "$(git tag)" ]; then
+            previous_tag=$(git describe --tags --abbrev=0 HEAD^)
+          else
+            previous_tag="no-tags"
+          fi
+          echo "previous_tag=${previous_tag}" >> $GITHUB_ENV
+        shell: bash
+
 
       - name: Generate Release Notes
         id: generate-notes
