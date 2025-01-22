@@ -1,11 +1,42 @@
-name: Debug Runner
+name: Release Automation
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on version tags
 
 jobs:
-  connectivity-test:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - name: Test GitHub API Connectivity
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set Up Git
         run: |
-          curl -v https://api.github.com/repos/peter-evans/create-issue
+          git fetch --tags
+
+      - name: Determine Previous Tag
+        id: get-previous-tag
+        run: |
+          previous_tag=$(git describe --tags --abbrev=0 HEAD^)
+          echo "previous_tag=${previous_tag}" >> $GITHUB_ENV
+
+      - name: Generate Release Notes
+        id: generate-notes
+        run: |
+          notes=$(git log --oneline ${previous_tag}..HEAD)
+          echo "release_notes=${notes}" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            ## Changes
+            ${{ env.release_notes }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
