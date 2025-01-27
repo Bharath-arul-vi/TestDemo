@@ -9,11 +9,14 @@ on:
 jobs:
   create-release-tag:
     runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.set-tag.outputs.tag_name }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
   
       - name: Create Tag
+        id: set-tag
         run: |
           TAG_NAME="payflow-release-0.0.2"
           git config user.name "GitHub Actions"
@@ -38,7 +41,7 @@ jobs:
 
       - name: Use the Tag Name
         run: |
-          echo "The tag name is: $TAG_NAME"
+          TAG_NAME="${{ needs.create-release-tag.outputs.tag_name }}"
           git fetch --tags --force
           git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)  # Sync local repo with the remote branch
   
