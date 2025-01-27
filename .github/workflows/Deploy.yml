@@ -38,6 +38,7 @@ on:
           - ""
           - UK_prod_001_crx_p_dfs_l
           - UK_prod_001_chn_p_dfs_l
+        
       create_release_tag:
         description: 'Should create a release tag?'
         required: true
@@ -59,7 +60,7 @@ jobs:
       - name: Send Slack Notification Before Approval
         run: echo "Slack notification sent."
 
-            - name: Validate Inputs
+      - name: Validate Inputs
         run: |
           if [[ "${{ github.event.inputs.environment_type }}" == "development" ]]; then
             if [[ -z "${{ github.event.inputs.development_environment }}" ]]; then
