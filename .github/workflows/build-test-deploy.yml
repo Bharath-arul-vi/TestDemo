@@ -21,8 +21,6 @@ jobs:
           TAG_NAME="payflow-release-0.0.2"
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git tag "$TAG_NAME"
-          git push origin "$TAG_NAME"
   
           # Output the tag name for use in subsequent jobs using environment files
           echo "tag_name=$TAG_NAME" >> $GITHUB_ENV
