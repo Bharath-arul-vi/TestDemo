@@ -27,6 +27,8 @@ jobs:
           # Output the tag name for use in subsequent jobs using environment files
           echo "tag_name=$TAG_NAME" >> $GITHUB_ENV
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "::set-output name=tag_name::$TAG_NAME"
+
   release:
     runs-on: ubuntu-latest
     steps:
