@@ -47,3 +47,14 @@ jobs:
         env:
           TAG_NAME: ${{ needs.create-release-tag.outputs.tag_name }}
 
+      - name: Use the Tag Name 2
+        run: |
+          echo "The tag name is: $TAG_NAME"
+          git fetch --tags --force
+          git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)  # Sync local repo with the remote branch
+  
+          # Use the tag name in your script
+          echo "Processing tag $TAG_NAME"
+        env:
+          TAG_NAME: ${{ env.TAG_NAME }}
+
