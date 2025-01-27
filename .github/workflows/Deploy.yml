@@ -74,13 +74,9 @@ jobs:
               exit 1
             fi
             echo "TARGET_ENVIRONMENT=${{ github.event.inputs.sandbox_environment }}" >> $GITHUB_ENV
-          elif [[ "${{ github.event.inputs.environment_type }}" == "prod" ]]; then
+          elif [[ "${{ github.event.inputs.environment_type }}" == "production" ]]; then
             if [[ -z "${{ github.event.inputs.prod_environment }}" ]]; then
               echo "Error: You must select a prod environment."
-              exit 1
-            fi
-            if [[ "${{ github.ref_type }}" != "tag" ]]; then
-              echo "Error: Production deployments can only be triggered by tags, not branches."
               exit 1
             fi
             if [[ "${{ github.event.inputs.create_release_tag }}" == "true" ]]; then
