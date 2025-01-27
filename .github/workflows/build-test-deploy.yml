@@ -7,6 +7,23 @@ on:
       - 'v*.*.*' # Trigger on version tags
 
 jobs:
+  create-release-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+  
+      - name: Create Tag
+        run: |
+          TAG_NAME="payflow-release-0.0.2"
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+  
+          # Output the tag name for use in subsequent jobs using environment files
+          echo "tag_name=$TAG_NAME" >> $GITHUB_ENV
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
   release:
     runs-on: ubuntu-latest
     steps:
@@ -19,48 +36,14 @@ jobs:
         run: |
           git fetch --tags
 
-      - name: Get Previous Tag
+      - name: Use the Tag Name
         run: |
-          if git rev-parse HEAD^ >/dev/null 2>&1; then
-            previous_tag=$(git describe --tags --abbrev=0 HEAD^)
-          else
-            previous_tag="none"
-          fi
-          echo "previous_tag=${previous_tag}" >> $GITHUB_ENV
-        shell: bash
-
-      - name: Check for Tags
-        run: |
-          if [ "$(git tag)" ]; then
-            previous_tag=$(git describe --tags --abbrev=0 HEAD^)
-          else
-            previous_tag="no-tags"
-          fi
-          echo "previous_tag=${previous_tag}" >> $GITHUB_ENV
-        shell: bash
-
-
-      - name: Get Release Notes
-        run: |
-          notes=$(git log --oneline ${previous_tag}..HEAD)
-          echo "release_notes<<EOF" >> $GITHUB_ENV
-          echo "${notes}" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-        shell: bash
-
-
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: |
-            ## Changes
-            ${{ env.release_notes }}
-          draft: false
-          prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print Release Notes
-        run: echo "${{ env.release_notes }}"
+          echo "The tag name is: $TAG_NAME"
+          git fetch --tags --force
+          git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)  # Sync local repo with the remote branch
+  
+          # Use the tag name in your script
+          echo "Processing tag $TAG_NAME"
+        env:
+          TAG_NAME: ${{ needs.create-release-tag.outputs.tag_name }}
 
