@@ -1,8 +1,7 @@
 name: Scheduled tests
 
 on:
-  schedule:
-     - cron: '*/2 * * * *'
+  workflow_dispatch:
 
 jobs:
   trigger-dev-tests:
