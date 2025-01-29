@@ -51,6 +51,8 @@ env:
 
 jobs:
   application-deployment:
+    environment:
+      name: production
     runs-on: ubuntu-latest
     steps:
         
