@@ -8,8 +8,15 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RUN_DEV_TESTS: false
-    if: ${{ env.RUN_DEV_TESTS != 'false' }}
     steps:
+      - name: Check if RUN_DEV_TESTS is enabled
+        run: |
+          if [ "$RUN_DEV_TESTS" != "false" ]; then
+            echo "Running tests..."
+          else
+            echo "Skipping tests."
+            exit 0
+          fi
       - name: Checkout repository
         uses: actions/checkout@v3
       # Add other steps as needed
