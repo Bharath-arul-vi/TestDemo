@@ -74,7 +74,7 @@ jobs:
             -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
             "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/deployments")
         
-          echo "Deployments Data: $DEPLOYMENTS"
+          # echo "Deployments Data: $DEPLOYMENTS"
         
           # Get the actor who triggered the deployment (workflow actor)
           TRIGGERED_BY="${{ github.actor }}"
