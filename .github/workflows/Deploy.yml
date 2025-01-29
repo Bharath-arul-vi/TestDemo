@@ -74,14 +74,16 @@ jobs:
             -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
             "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/deployments")
 
-          echo "Deployments Data: $DEPLOYMENTS"
+          # echo "Deployments Data: $DEPLOYMENTS"
 
           # Get the actor who triggered the deployment (workflow actor)
           TRIGGERED_BY="${{ github.actor }}"
+          echo "TRIGGERED_BY Data: $TRIGGERED_BY"
           
           # Find the relevant deployment approval
           APPROVED_BY=$(echo "$DEPLOYMENTS" | jq -r '.[] | select(.status=="success") | .creator.login' | head -n 1)
-
+          echo "APPROVED_BY Data: $APPROVED_BY"
+          
           # Check if the trigger and approval are the same person
           if [ "$TRIGGERED_BY" == "$APPROVED_BY" ]; then
             echo "❌ You (as $TRIGGERED_BY) cannot approve your own deployment. Please ask one of the assigned reviewers."
