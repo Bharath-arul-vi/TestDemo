@@ -68,22 +68,29 @@ jobs:
           # GitHub API for fetching deployment information
           REPO_OWNER="Bharath-arul-vi"
           REPO_NAME="TestDemo"
-
-          # Fetch all deployments
+        
+          # Fetch all deployments (use a specific deployment ID if needed)
           DEPLOYMENTS=$(curl -s \
             -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
             "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/deployments")
-
-          # echo "Deployments Data: $DEPLOYMENTS"
-
+        
+          echo "Deployments Data: $DEPLOYMENTS"
+        
           # Get the actor who triggered the deployment (workflow actor)
           TRIGGERED_BY="${{ github.actor }}"
           echo "TRIGGERED_BY Data: $TRIGGERED_BY"
-          
-          # Find the relevant deployment approval
-          APPROVED_BY=$(echo "$DEPLOYMENTS" | jq -r '.[] | select(.status=="success") | .creator.login' | head -n 1)
+        
+          # Fetch deployment statuses to find the approval data
+          DEPLOYMENT_STATUS=$(curl -s \
+            -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+            "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/deployments/$(echo $DEPLOYMENTS | jq -r '.[0].id')/statuses")
+        
+          echo "Deployment Status Data: $DEPLOYMENT_STATUS"
+        
+          # Find the person who approved the deployment
+          APPROVED_BY=$(echo "$DEPLOYMENT_STATUS" | jq -r '.[] | select(.state=="success") | .creator.login' | head -n 1)
           echo "APPROVED_BY Data: $APPROVED_BY"
-          
+        
           # Check if the trigger and approval are the same person
           if [ "$TRIGGERED_BY" == "$APPROVED_BY" ]; then
             echo "❌ You (as $TRIGGERED_BY) cannot approve your own deployment. Please ask one of the assigned reviewers."
@@ -91,6 +98,7 @@ jobs:
           else
             echo "✅ Deployment triggered by $TRIGGERED_BY. Approval required from assigned reviewers."
           fi
+
 
       - name: Validate Inputs
         run: |
