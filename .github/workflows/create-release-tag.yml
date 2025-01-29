@@ -7,7 +7,7 @@ env:
   RUN_DEV_TESTS: false
 
 jobs:
-    trigger-dev-tests:
+  trigger-dev-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Set baseUrl for dev environment
