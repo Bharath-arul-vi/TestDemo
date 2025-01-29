@@ -88,8 +88,9 @@ jobs:
           echo "Deployment Status Data: $DEPLOYMENT_STATUS"
         
           # Find the person who approved the deployment
-          APPROVED_BY=$(echo "$DEPLOYMENT_STATUS" | jq -r '.[] | select(.state=="success") | .creator.login' | head -n 1)
+           APPROVED_BY=$(echo "$DEPLOYMENT_STATUS" | jq -r '.[] | select(.state=="success" or .state=="waiting" or .state=="in_progress") | .creator.login' | head -n 1)
           echo "APPROVED_BY Data: $APPROVED_BY"
+
         
           # Check if the trigger and approval are the same person
           if [ "$TRIGGERED_BY" == "$APPROVED_BY" ]; then
