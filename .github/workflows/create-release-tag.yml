@@ -2,27 +2,34 @@ name: Scheduled tests
 
 on:
   workflow_dispatch:
+  
+env:
+  RUN_DEV_TESTS: false
 
 jobs:
-  trigger-dev-tests:
+    trigger-dev-tests:
     runs-on: ubuntu-latest
-    env:
-      RUN_DEV_TESTS: false
     steps:
-      - name: Check if RUN_DEV_TESTS is enabled
-        run: |
-          if [ "$RUN_DEV_TESTS" != "false" ]; then
-            echo "Running tests..."
-          else
-            echo "Skipping tests."
-            exit 0
-          fi
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      # Add other steps as needed
+      - name: Set baseUrl for dev environment
+        run: echo "BASE_URL=https://api-dev.datatrans.biz" >> $GITHUB_ENV
 
-      - name: Checkout repository
-        run: echo "Dev run"
+      - name: Debug BASE_URL
+        run: echo "BASE_URL is ${{ env.BASE_URL }}"
+
+      - name: Trigger the integration tests workflow for dev
+        if: ${{ env.RUN_DEV_TESTS != 'false' }}
+        run: |
+          curl -X POST \
+          -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/weareplanet/payflow/actions/workflows/integration-tests.yml/dispatches \
+          -d '{
+            "ref": "main",
+            "inputs": {
+              "branch": "main",
+              "baseUrl": "${{ env.BASE_URL }}"
+            }
+          }'
       
   trigger-INT-tests:
     runs-on: ubuntu-latest
