@@ -59,8 +59,18 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v2
 
+      - name: Determine input tag
+        id: tag-check
+        run: |
+          if [[ "${{ github.ref_type }}" != "tag" ]]; then
+            echo "Error: Production deployments can only be triggered by tags, not branches."
+            exit 1
+          fi
+          echo "TAG_VERSION=${{ github.ref_name }}" >> "$GITHUB_ENV"
+
+
       - name: Send Slack Notification Before Approval
-        run: echo "Slack notification sent."
+        run: echo "Slack notification sent for the Version {{ $env.TAG_VERSION }}"
 
       - name: Get deployment approval data from GitHub API
         id: fetch_approval_data
