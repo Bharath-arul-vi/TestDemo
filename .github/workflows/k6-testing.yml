@@ -1,0 +1,64 @@
+name: Run K6 Payflow Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      vus:
+        description: 'Number of Virtual Users'
+        required: true
+        default: '5'
+      iterations:
+        description: 'Iterations per user'
+        required: true
+        default: '1'
+      base_url:
+        description: 'Server to run k6 Test against'
+        required: true
+        type: choice
+        options:
+          - 'https://api.sandbox.datatrans.com'
+          - 'https://api-001-chn-t-dfs-l.datatrans.tech'
+          - 'https://api-002-chn-t-dfs-l.datatrans.tech'
+        default: 'https://api.sandbox.datatrans.com'
+      merchant_id:
+        description: 'Merchant ID'
+        required: true
+        default: '12345678'
+      api_key:
+        description: 'API Key'
+        required: true
+        default: 'testing'
+      use_cloud:
+        description: 'Use k6 Cloud? (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  run-k6:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create dynamic config file
+        run: |
+          echo "export const CONFIG = {
+            BASE_URL: '${{ github.event.inputs.base_url }}',
+            MERCHANT_ID: '${{ github.event.inputs.merchant_id }}',
+            API_KEY: '${{ github.event.inputs.api_key }}'
+          };" > config.js
+
+      - name: Run k6 test
+        uses: grafana/k6-action@v0.2.0
+        with:
+          filename: payflow-test.js
+          flags: ${{ github.event.inputs.use_cloud == 'true' && 'cloud' || '--vus ' + github.event.inputs.vus + ' --iterations ' + github.event.inputs.iterations + ' --out json=results.json' }}
+        continue-on-error: true
+
+      - name: Upload test results as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results
+          path: results.json
