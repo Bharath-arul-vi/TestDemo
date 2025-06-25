@@ -60,35 +60,24 @@ jobs:
             echo "flags=--vus ${{ github.event.inputs.vus }} --iterations ${{ github.event.inputs.iterations }} --out json=results.json" >> $GITHUB_OUTPUT
           fi
 
-      - name: Install dependencies and build xk6-browser
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git make unzip curl
-          curl -sSfL https://raw.githubusercontent.com/grafana/xk6/main/install.sh | bash
-          ./bin/xk6 build --with github.com/grafana/xk6-browser
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
 
-      - name: Run test using xk6-browser
+      - name: Build xk6-browser
         run: |
-          ./k6 run ./scripts/k6/payflow-payment.js --vus ${{ github.event.inputs.vus }} --iterations ${{ github.event.inputs.iterations }} --out json=results.json
+          go install go.k6.io/xk6/cmd/xk6@latest
+          xk6 build --with github.com/grafana/xk6-browser
 
-      - name: Pull xk6-browser image
-        run: docker pull ghcr.io/grafana/xk6-browser:latest
-
-      - name: Run xk6-browser using Docker
+      - name: Run K6 test with browser
         run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/scripts \
-            -w /scripts \
-            --shm-size=2g \
-            ghcr.io/grafana/xk6-browser:latest \
-            run /scripts/scripts/k6/payflow-payment.js \
+          ./k6 run scripts/k6/payflow-payment.js \
             --vus ${{ github.event.inputs.vus }} \
             --iterations ${{ github.event.inputs.iterations }} \
             --out json=results.json
 
-
-      - name: Upload test results as artifact
-        if: always()
+      - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
           name: k6-results
