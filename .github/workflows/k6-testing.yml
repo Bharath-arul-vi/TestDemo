@@ -60,13 +60,16 @@ jobs:
             echo "flags=--vus ${{ github.event.inputs.vus }} --iterations ${{ github.event.inputs.iterations }} --out json=results.json" >> $GITHUB_OUTPUT
           fi
 
+      - name: Pull xk6-browser image
+        run: docker pull ghcr.io/grafana/xk6-browser:latest
+
       - name: Run xk6-browser using Docker
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/scripts \
             -w /scripts \
             --shm-size=2g \
-            grafana/xk6-browser \
+            ghcr.io/grafana/xk6-browser:latest \
             run /scripts/scripts/k6/payflow-payment.js \
             --vus ${{ github.event.inputs.vus }} \
             --iterations ${{ github.event.inputs.iterations }} \
