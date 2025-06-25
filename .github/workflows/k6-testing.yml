@@ -65,13 +65,21 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Build xk6-browser
+      - name: Install system dependencies
         run: |
-          go install go.k6.io/xk6/cmd/xk6@latest
-          xk6 build --with github.com/grafana/xk6-browser
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2 libgbm-dev
+
+
+      - name: Build xk6 with xk6-browser extension
+        run: |
+          go install go.k6.io/xk6/cmd/xk6@v0.9.0
+          xk6 build v0.47.0 --with github.com/grafana/xk6-browser@v0.10.0
+          mv k6 ./k6  # ensure it's in the working directory
 
       - name: Run K6 test with browser
         run: |
+          chmod +x ./k6
           ./k6 run scripts/k6/payflow-payment.js \
             --vus ${{ github.event.inputs.vus }} \
             --iterations ${{ github.event.inputs.iterations }} \
