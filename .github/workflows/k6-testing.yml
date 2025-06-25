@@ -46,14 +46,14 @@ jobs:
           echo "Root files:"
           ls -l
           echo "Scripts folder:"
-          ls -l scripts/
+          ls -l ./.github/scripts/
           echo "Scripts/k6 folder:"
-          ls -l scripts/k6/
+          ls -l ./.github/scripts/k6/
 
       - name: Show current directory and file content
         run: |
           pwd
-          cat scripts/k6/payflow-payment.js
+          cat ./.github/scripts/k6/payflow-payment.js
 
 
       - name: Create dynamic config file
