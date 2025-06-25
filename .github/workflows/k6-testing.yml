@@ -41,6 +41,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: List repo files for debug
+        run: |
+          echo "Root files:"
+          ls -l
+          echo "Scripts folder:"
+          ls -l scripts/
+          echo "Scripts/k6 folder:"
+          ls -l scripts/k6/
+
+      - name: Show current directory and file content
+        run: |
+          pwd
+          cat scripts/k6/payflow-payment.js
+
+
       - name: Create dynamic config file
         run: |
           echo "export const CONFIG = {
