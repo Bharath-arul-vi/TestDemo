@@ -1,4 +1,4 @@
-import { browser } from 'k6/browser';
+import { browser } from 'k6/x/browser';
 import { check } from 'k6';
 
 /**
