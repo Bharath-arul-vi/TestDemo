@@ -79,7 +79,7 @@ jobs:
       - name: Run K6 test with browser
         run: |
           chmod +x ./k6
-          ./k6 run scripts/k6/payflow-payment.js \
+          ./k6 run ./.github/scripts/k6/payflow-payment.js \
             --vus ${{ github.event.inputs.vus }} \
             --iterations ${{ github.event.inputs.iterations }} \
             --out json=results.json
