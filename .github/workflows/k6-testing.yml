@@ -60,6 +60,17 @@ jobs:
             echo "flags=--vus ${{ github.event.inputs.vus }} --iterations ${{ github.event.inputs.iterations }} --out json=results.json" >> $GITHUB_OUTPUT
           fi
 
+      - name: Install dependencies and build xk6-browser
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git make unzip curl
+          curl -sSfL https://raw.githubusercontent.com/grafana/xk6/main/install.sh | bash
+          ./bin/xk6 build --with github.com/grafana/xk6-browser
+
+      - name: Run test using xk6-browser
+        run: |
+          ./k6 run ./scripts/k6/payflow-payment.js --vus ${{ github.event.inputs.vus }} --iterations ${{ github.event.inputs.iterations }} --out json=results.json
+
       - name: Pull xk6-browser image
         run: docker pull ghcr.io/grafana/xk6-browser:latest
 
