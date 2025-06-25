@@ -4,12 +4,8 @@ export const REDIRECT_URL = 'https://www.datatrans.ch/en/';
 
 export const API_KEY = 'testing';
 
-export const HEADERS_COMMON = {
-  'X-API-KEY': API_KEY,
-};
-
 export const HEADERS_START_PAYMENT = {
-  ...HEADERS_COMMON,
+  'X-API-KEY': API_KEY,
   'X-WEBHOOK-URL': WEBHOOK_URL,
 };
 
