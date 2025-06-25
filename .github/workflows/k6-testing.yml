@@ -60,12 +60,17 @@ jobs:
             echo "flags=--vus ${{ github.event.inputs.vus }} --iterations ${{ github.event.inputs.iterations }} --out json=results.json" >> $GITHUB_OUTPUT
           fi
 
-      - name: Run k6 test
-        uses: grafana/k6-action@v0.2.0
-        with:
-          filename: ./.github/scripts/k6/payflow-payment.js
-          flags: ${{ steps.set_flags.outputs.flags }}
-        continue-on-error: true
+      - name: Run xk6-browser using Docker
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/scripts \
+            -w /scripts \
+            --shm-size=2g \
+            grafana/xk6-browser \
+            run /scripts/scripts/k6/payflow-payment.js \
+            --vus ${{ github.event.inputs.vus }} \
+            --iterations ${{ github.event.inputs.iterations }} \
+            --out json=results.json
 
 
       - name: Upload test results as artifact
