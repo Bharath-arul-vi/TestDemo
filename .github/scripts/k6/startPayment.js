@@ -9,10 +9,9 @@ import { BASE_URL,HEADERS_START_PAYMENT } from './config.js';
  */
 export function startPayment(correlationId) {
   const params = {
-    headers: {
-      ...HEADERS_START_PAYMENT,
+    headers: Object.assign({}, HEADERS_START_PAYMENT, {
       'X-CORRELATION-ID': correlationId,
-    },
+    }),
   };
 
   const res = http.post(`${BASE_URL}/payflow/api/v1/payments`, null, params);
