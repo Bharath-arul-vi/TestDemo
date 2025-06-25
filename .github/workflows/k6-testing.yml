@@ -75,7 +75,6 @@ jobs:
         run: |
           go install go.k6.io/xk6/cmd/xk6@v0.9.0
           xk6 build v0.47.0 --with github.com/grafana/xk6-browser@v0.10.0
-          mv k6 ./k6  # ensure it's in the working directory
 
       - name: Run K6 test with browser
         run: |
