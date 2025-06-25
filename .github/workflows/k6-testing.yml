@@ -76,7 +76,7 @@ jobs:
       - name: Run k6 test
         uses: grafana/k6-action@v0.2.0
         with:
-          filename: /github/workspace/scripts/k6/payflow-payment.js
+          filename: ./.github/scripts/k6/payflow-payment.js
           flags: ${{ steps.set_flags.outputs.flags }}
         continue-on-error: true
 
