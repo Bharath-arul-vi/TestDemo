@@ -23,7 +23,7 @@ on:
       merchant_id:
         description: 'Merchant ID'
         required: true
-        default: '12345678'
+        default: '1110017078'
       api_key:
         description: 'API Key'
         required: true
@@ -50,19 +50,6 @@ jobs:
           echo "Scripts/k6 folder:"
           ls -l ./.github/scripts/k6/
 
-      - name: Show current directory and file content
-        run: |
-          pwd
-          cat ./.github/scripts/k6/payflow-payment.js
-
-
-      - name: Create dynamic config file
-        run: |
-          echo "export const CONFIG = {
-            BASE_URL: '${{ github.event.inputs.base_url }}',
-            MERCHANT_ID: '${{ github.event.inputs.merchant_id }}',
-            API_KEY: '${{ github.event.inputs.api_key }}'
-          };" > config.js
 
       - name: Set k6 flags
         id: set_flags
