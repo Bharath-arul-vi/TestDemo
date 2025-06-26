@@ -50,6 +50,56 @@ env:
   MAVEN_VERSION: 3.9.5
 
 jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.environment_type == 'prod' }}
+    steps:
+      - name: Wait for 30 Minutes or Until Approval/Rejection
+        id: sleep-until-approval
+        run: |
+          echo "Starting watchdog for 30 minutes or until approval/rejection..."
+          for i in {1..5}; do
+            echo "Checking if approval has been granted or rejected..."
+            response=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                            -H "Accept: application/vnd.github.v3+json" \
+                            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs")
+          
+            approval_step_status=$(echo "$response" | jq -r '.jobs[] | select(.name=="application-deployment") | .status // "null"')
+            approval_step_conclusion=$(echo "$response" | jq -r '.jobs[] | select(.name=="application-deployment") | .conclusion // "null"')
+          
+            echo "Approval step status :  $approval_step_status "
+            echo "Approval step conclusion: $approval_step_conclusion"
+          
+            # Check the conclusion of the approval step
+            if [[ "$approval_step_conclusion" == "failure" ]]; then
+              echo "Approval rejected."
+              exit 1
+            elif [[ "$approval_step_status" == "in_progress" ]]; then
+              echo "Approval granted. Proceeding with deployment."
+              exit 0
+            elif [[ "$approval_step_conclusion" == "null" ]]; then
+              echo "Approval or rejection is still pending..."
+              # Optionally handle the pending state by continuing the loop or waiting further
+            else
+              echo "Unexpected approval step conclusion: $approval_step_conclusion"
+              exit 1
+            fi
+            sleep 60
+          done
+          echo "Timeout reached without approval or rejection.."
+          timeout="true"
+          echo "timeout=$timeout" >> $GITHUB_ENV
+          exit 0
+
+      - name: Check If Approval Has Been Granted
+        if: ${{ env.timeout == 'true' }}
+        run: |
+          echo "Approval not granted within timeout. Cancelling workflow."
+          response=$(curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel")
+          echo "Response: $response"
+
   application-deployment:
     environment:
       name: production
