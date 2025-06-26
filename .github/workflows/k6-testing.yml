@@ -24,10 +24,6 @@ on:
         description: 'Merchant ID'
         required: true
         default: '1110017078'
-      api_key:
-        description: 'API Key'
-        required: true
-        default: 'testing'
       use_cloud:
         description: 'Use k6 Cloud? (true/false)'
         required: false
