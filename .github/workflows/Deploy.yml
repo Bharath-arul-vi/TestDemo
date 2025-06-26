@@ -52,7 +52,7 @@ env:
 jobs:
   watchdog:
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.environment_type == 'prod' }}
+    if: ${{ github.event.inputs.environment_type == 'production' }}
     steps:
       - name: Wait for 30 Minutes or Until Approval/Rejection
         id: sleep-until-approval
