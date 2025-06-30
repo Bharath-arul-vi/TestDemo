@@ -6,6 +6,9 @@ import { check } from 'k6';
  * @param {string} redirectUrl
  */
 export async function approvePaymentInBrowser(redirectUrl) {
+  const browser = await browser.launch({
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
   const page = await browser.newPage();
 
   try {
