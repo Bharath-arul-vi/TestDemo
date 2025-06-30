@@ -35,8 +35,7 @@ env:
 
 jobs:
   run-k6:
-    runs-on: 
-      group: onprem-infra-zurichNP
+    runs-on: ubuntu-latest
       
     steps:
       - name: Runner connected
