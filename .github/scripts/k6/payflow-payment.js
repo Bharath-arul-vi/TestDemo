@@ -9,8 +9,8 @@ export const options = {
   scenarios: {
     browser_test: {
       executor: 'per-vu-iterations',
-      vus: 5,
-      iterations: 5,
+      vus: parseInt(__ENV.VUS) || 5,
+      iterations: parseInt(__ENV.ITERATIONS) || 5,
       exec: 'runBrowserScenario',
       options: {
         browser: {
