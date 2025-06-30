@@ -29,6 +29,10 @@ on:
         required: false
         default: 'false'
 
+env:
+  VUS: ${{ github.event.inputs.vus }}
+  ITERATIONS: ${{ github.event.inputs.iterations }}
+
 jobs:
   run-k6:
     runs-on: ubuntu-latest
