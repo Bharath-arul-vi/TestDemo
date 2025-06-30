@@ -39,6 +39,9 @@ jobs:
       group: onprem-infra-zurichNP
       
     steps:
+      - name: Runner connected
+        run: echo "Runner is working"
+        
       - name: Checkout repository
         uses: actions/checkout@v4
 
