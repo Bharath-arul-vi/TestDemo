@@ -35,8 +35,9 @@ env:
 
 jobs:
   run-k6:
-    runs-on: [self-hosted, onprem-infra-zurichNP]
-
+    runs-on: 
+      group: onprem-infra-zurichNP
+      
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
