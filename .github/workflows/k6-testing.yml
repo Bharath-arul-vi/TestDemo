@@ -84,8 +84,6 @@ jobs:
         run: |
           chmod +x ./k6
           ./k6 run ./.github/scripts/k6/payflow-payment.js \
-            --vus ${{ github.event.inputs.vus }} \
-            --iterations ${{ github.event.inputs.iterations }} \
             --out json=results.json
 
       - name: Upload test results
