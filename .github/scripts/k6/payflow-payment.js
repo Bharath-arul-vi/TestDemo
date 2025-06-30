@@ -10,7 +10,8 @@ export const options = {
     browser_test: {
       executor: 'per-vu-iterations',
       vus: 5,
-      iterations: 1,
+      iterations: 5,
+      exec: 'runBrowserScenario',
       options: {
         browser: {
           type: 'chromium',
@@ -24,7 +25,7 @@ export const options = {
   },
 };
 
-export default async function () {
+export async function runBrowserScenario() {
   const correlationId = uuidv4();
 
   // 1. Start payment
