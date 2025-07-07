@@ -6,7 +6,7 @@ on:
       vus:
         description: 'Number of Virtual Users'
         required: true
-        default: '5'
+        default: '1'
       iterations:
         description: 'Iterations per user'
         required: true
