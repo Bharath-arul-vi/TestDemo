@@ -24,73 +24,165 @@ on:
         description: 'Merchant ID'
         required: true
         default: '1110017078'
-      use_cloud:
-        description: 'Use k6 Cloud? (true/false)'
-        required: false
-        default: 'false'
+      payment_method:
+        description: 'Payment method'
+        required: true
+        type: choice
+        options:
+          - 'CEMBRAPAY'
+          - 'POSTFINANCEPAY'
+        default: 'CEMBRAPAY'
+
 
 env:
   VUS: ${{ github.event.inputs.vus }}
   ITERATIONS: ${{ github.event.inputs.iterations }}
+  MERCHANT_ID: ${{ github.event.inputs.merchant_id }}
+  BASE_URL: ${{ github.event.inputs.base_url }}
+  PAYMENT_METHOD: ${{ github.event.inputs.payment_method }}
+  WAIT_TIMEOUT: 5000
 
 jobs:
   run-k6:
-    runs-on: ubuntu-latest
-      
+    runs-on:
+      group: onprem-infra-zurichNP
+
     steps:
       - name: Runner connected
         run: echo "Runner is working"
-        
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: List repo files for debug
+      - name: Check scaling_cur_freq file
         run: |
-          echo "Root files:"
-          ls -l
-          echo "Scripts folder:"
-          ls -l ./.github/scripts/
-          echo "Scripts/k6 folder:"
-          ls -l ./.github/scripts/k6/
-
-
-      - name: Set k6 flags
-        id: set_flags
-        run: |
-          if [ "${{ github.event.inputs.use_cloud }}" = "true" ]; then
-            echo "flags=cloud" >> $GITHUB_OUTPUT
+          echo "Checking /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ..."
+          if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ]; then
+            echo "✅ File exists!"
+            cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
           else
-            echo "flags=--vus ${{ github.event.inputs.vus }} --iterations ${{ github.event.inputs.iterations }} --out json=results.json" >> $GITHUB_OUTPUT
+            echo "❌ File NOT found. xk6-browser may fail to launch Chrome."
           fi
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
+      - name: Check and Install Go if Missing
+        run: |
+          if command -v go &> /dev/null; then
+            echo "✅ Go is already installed: $(go version)"
+          else
+            echo "❌ Go not found. Installing Go 1.21..."
+            wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+            sudo rm -rf /usr/local/go
+            sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+            echo "/usr/local/go/bin" >> $GITHUB_PATH  # Persist Go binary path for next steps
+          fi
+
+      - name: Check Go and PATH before xk6 install
+        run: |
+          echo "Checking go version..."
+          go version
+          echo "PATH is $PATH"
+          which go || echo "go command not found"
+
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libnss3 libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2t64 libgbm-dev
-      
+          sudo apt-get install -y libnss3 libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2 libgbm-dev libxshmfence-dev
 
-      - name: Build xk6 with xk6-browser extension
+      - name: Install xk6 if not present
         run: |
-          go install go.k6.io/xk6/cmd/xk6@v0.9.0
-          xk6 build v0.47.0 --with github.com/grafana/xk6-browser@v0.10.0
+          # Add Go bin folder to PATH for this step
+          export PATH=$PATH:$HOME/go/bin
+          echo "PATH is: $PATH"
+          go version
+
+          if ! command -v xk6 &> /dev/null; then
+            echo "xk6 not found, installing..."
+            go install go.k6.io/xk6/cmd/xk6@v0.9.0
+            # Persist the $HOME/go/bin path for next steps
+            echo "$HOME/go/bin" >> $GITHUB_PATH
+          else
+            echo "xk6 already installed"
+          fi
+
+      - name: Build k6 with xk6-browser extension if not exists
+        run: |
+          # Ensure PATH includes $HOME/go/bin so xk6 can be found
+          export PATH=$PATH:$HOME/go/bin
+          if [ ! -f "./k6" ]; then
+            echo "Building k6 with xk6-browser extension..."
+            xk6 build v0.47.0 --with github.com/grafana/xk6-browser@v0.10.0
+          else
+            echo "k6 binary already exists"
+          fi
 
       - name: Check k6 version
         run: |
           ./k6 version
 
+      - name: Install Google Chrome
+        run: |
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install -y ./google-chrome-stable_current_amd64.deb
+
+      - name: Set CHROME_BIN env variable
+        run: |
+          echo "CHROME_BIN=$(which google-chrome)" >> $GITHUB_ENV
+
       - name: Run k6 test with browser
         run: |
+          pwd
+          ls -l ./k6
           chmod +x ./k6
-          ./k6 run ./.github/scripts/k6/payflow-payment.js \
-            --out json=results.json
+          ./k6 run ./.github/scripts/k6/payflow-payment.js --out json=results.json
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
           name: k6-results
           path: results.json
+
+      - name: Parse k6 results and send Slack summary
+        env:
+          SLACK_INTEGRATION_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          echo "✅ k6 Browser Test Summary"
+          echo "----------------------------"
+
+          total_requests=$(jq -s '[.[] | select(.metric=="http_reqs" and .type=="Point")] | length' results.json)
+          avg_duration=$(jq -s '[.[] | select(.metric=="http_req_duration" and .type=="Point") | .data.value] | if length > 0 then (add / length) else 0 end' results.json)
+          total_checks=$(jq -s '[.[] | select(.metric=="checks" and .type=="Point")] | length' results.json)
+          failed_checks=$(jq -s '[.[] | select(.metric=="checks" and .type=="Point" and .data.value == 0)] | length' results.json)
+          passed_checks=$((total_checks - failed_checks))
+
+          failed_requests=$(jq -s '[.[] | select(.metric=="http_req_failed" and .type=="Point") | select(.data.value == 1)] | length' results.json)
+
+          status_summary=$(jq -s '
+            [.[] | select(.metric=="http_reqs" and .type=="Point") | .data.tags.status]
+            | group_by(.) 
+            | map("\(.[0]) → \(length)") 
+            | join(", ")' results.json)
+
+          slowest=$(jq -s '[.[] | select(.metric=="http_req_duration" and .type=="Point")] | max_by(.data.value) | {url: .data.tags.url, duration: .data.value}' results.json)
+          slowest_url=$(echo "$slowest" | jq -r '.url')
+          slowest_time=$(echo "$slowest" | jq -r '.duration')
+
+          summary=$(cat <<EOF
+          ✅  *k6 Browser Test Summary*
+          📊  *Total HTTP Requests*: $total_requests
+          🚀  *Avg Response Time*: $(printf "%.2f" "$avg_duration") ms
+          📦  *HTTP Status Codes*: $status_summary
+          💥  *Failed HTTP Requests*: $failed_requests
+          🐢  *Slowest Endpoint*: $slowest_url → $(printf "%.2f" "$slowest_time") ms
+          ✅  *Checks Passed*: $passed_checks
+          ❌  *Checks Failed*: $failed_checks
+          EOF
+          )
+          
+          echo "$summary"
+          jq -n --arg text "$summary" '{text: $text}'
+          
+          jq -n --arg text "$summary" '{text: $text}' | \
+          curl -X POST -H "Content-type: application/json" \
+            --data @- \
+            "$SLACK_INTEGRATION_WEBHOOK"
