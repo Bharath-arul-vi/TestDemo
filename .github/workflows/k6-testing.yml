@@ -1,16 +1,58 @@
-name: Run K6 Payflow Test
+name: Run K6 Payflow Browser Test
 
 on:
   workflow_dispatch:
     inputs:
+      executor:
+        description: 'Executor type'
+        required: true
+        type: choice
+        options:
+          - per-vu-iterations
+          - constant-arrival-rate
+          - ramping-arrival-rate
+        default: 'per-vu-iterations'
+
       vus:
         description: 'Number of Virtual Users'
         required: true
         default: '1'
+
       iterations:
-        description: 'Iterations per user'
-        required: true
+        description: 'Iterations per VU (for per-vu-iterations)'
+        required: false
         default: '1'
+
+      rate:
+        description: 'Rate (for constant-arrival-rate)'
+        required: false
+        default: '1'
+
+      time_unit:
+        description: 'Time unit (e.g., 10s, 1m)'
+        required: false
+        default: '10s'
+
+      duration:
+        description: 'Duration (for constant-arrival-rate)'
+        required: false
+        default: '1m'
+
+      pre_allocated_vus:
+        description: 'Pre-allocated VUs'
+        required: false
+        default: '1'
+
+      max_vus:
+        description: 'Max VUs'
+        required: false
+        default: '1'
+
+      stages:
+        description: 'Stages (JSON array for ramping-arrival-rate)'
+        required: false
+        default: '[{"target":5,"duration":"2m"}]'
+
       base_url:
         description: 'Server to run k6 Test against'
         required: true
@@ -20,10 +62,12 @@ on:
           - 'https://api-001-chn-t-dfs-l.datatrans.tech'
           - 'https://api-002-chn-t-dfs-l.datatrans.tech'
         default: 'https://api.sandbox.datatrans.com'
+
       merchant_id:
         description: 'Merchant ID'
         required: true
         default: '1110017078'
+
       payment_method:
         description: 'Payment method'
         required: true
@@ -33,12 +77,18 @@ on:
           - 'POSTFINANCEPAY'
         default: 'CEMBRAPAY'
 
-
 env:
+  EXECUTOR: ${{ github.event.inputs.executor }}
   VUS: ${{ github.event.inputs.vus }}
   ITERATIONS: ${{ github.event.inputs.iterations }}
-  MERCHANT_ID: ${{ github.event.inputs.merchant_id }}
+  RATE: ${{ github.event.inputs.rate }}
+  TIME_UNIT: ${{ github.event.inputs.time_unit }}
+  DURATION: ${{ github.event.inputs.duration }}
+  PRE_ALLOCATED_VUS: ${{ github.event.inputs.pre_allocated_vus }}
+  MAX_VUS: ${{ github.event.inputs.max_vus }}
+  STAGES: ${{ github.event.inputs.stages }}
   BASE_URL: ${{ github.event.inputs.base_url }}
+  MERCHANT_ID: ${{ github.event.inputs.merchant_id }}
   PAYMENT_METHOD: ${{ github.event.inputs.payment_method }}
   WAIT_TIMEOUT: 5000
 
@@ -54,135 +104,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check scaling_cur_freq file
+      - name: Install xk6-browser
         run: |
-          echo "Checking /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ..."
-          if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ]; then
-            echo "✅ File exists!"
-            cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
-          else
-            echo "❌ File NOT found. xk6-browser may fail to launch Chrome."
-          fi
+          curl -sSL https://github.com/grafana/xk6-browser/releases/download/v0.9.0/xk6-browser-v0.9.0-linux-amd64.tar.gz | tar -xz
+          sudo mv xk6-browser /usr/local/bin/k6
 
-      - name: Check and Install Go if Missing
+      - name: Run k6 Browser Load Test
         run: |
-          if command -v go &> /dev/null; then
-            echo "✅ Go is already installed: $(go version)"
-          else
-            echo "❌ Go not found. Installing Go 1.21..."
-            wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
-            sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
-            echo "/usr/local/go/bin" >> $GITHUB_PATH  # Persist Go binary path for next steps
-          fi
-
-      - name: Check Go and PATH before xk6 install
-        run: |
-          echo "Checking go version..."
-          go version
-          echo "PATH is $PATH"
-          which go || echo "go command not found"
-
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libnss3 libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2 libgbm-dev libxshmfence-dev
-
-      - name: Install xk6 if not present
-        run: |
-          # Add Go bin folder to PATH for this step
-          export PATH=$PATH:$HOME/go/bin
-          echo "PATH is: $PATH"
-          go version
-
-          if ! command -v xk6 &> /dev/null; then
-            echo "xk6 not found, installing..."
-            go install go.k6.io/xk6/cmd/xk6@v0.9.0
-            # Persist the $HOME/go/bin path for next steps
-            echo "$HOME/go/bin" >> $GITHUB_PATH
-          else
-            echo "xk6 already installed"
-          fi
-
-      - name: Build k6 with xk6-browser extension if not exists
-        run: |
-          # Ensure PATH includes $HOME/go/bin so xk6 can be found
-          export PATH=$PATH:$HOME/go/bin
-          if [ ! -f "./k6" ]; then
-            echo "Building k6 with xk6-browser extension..."
-            xk6 build v0.47.0 --with github.com/grafana/xk6-browser@v0.10.0
-          else
-            echo "k6 binary already exists"
-          fi
-
-      - name: Check k6 version
-        run: |
-          ./k6 version
-
-      - name: Install Google Chrome
-        run: |
-          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-          sudo apt install -y ./google-chrome-stable_current_amd64.deb
-
-      - name: Set CHROME_BIN env variable
-        run: |
-          echo "CHROME_BIN=$(which google-chrome)" >> $GITHUB_ENV
-
-      - name: Run k6 test with browser
-        run: |
-          pwd
-          ls -l ./k6
-          chmod +x ./k6
-          ./k6 run ./.github/scripts/k6/payflow-payment.js --out json=results.json
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        with:
-          name: k6-results
-          path: results.json
-
-      - name: Parse k6 results and send Slack summary
-        env:
-          SLACK_INTEGRATION_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          echo "✅ k6 Browser Test Summary"
-          echo "----------------------------"
-
-          total_requests=$(jq -s '[.[] | select(.metric=="http_reqs" and .type=="Point")] | length' results.json)
-          avg_duration=$(jq -s '[.[] | select(.metric=="http_req_duration" and .type=="Point") | .data.value] | if length > 0 then (add / length) else 0 end' results.json)
-          total_checks=$(jq -s '[.[] | select(.metric=="checks" and .type=="Point")] | length' results.json)
-          failed_checks=$(jq -s '[.[] | select(.metric=="checks" and .type=="Point" and .data.value == 0)] | length' results.json)
-          passed_checks=$((total_checks - failed_checks))
-
-          failed_requests=$(jq -s '[.[] | select(.metric=="http_req_failed" and .type=="Point") | select(.data.value == 1)] | length' results.json)
-
-          status_summary=$(jq -s '
-            [.[] | select(.metric=="http_reqs" and .type=="Point") | .data.tags.status]
-            | group_by(.) 
-            | map("\(.[0]) → \(length)") 
-            | join(", ")' results.json)
-
-          slowest=$(jq -s '[.[] | select(.metric=="http_req_duration" and .type=="Point")] | max_by(.data.value) | {url: .data.tags.url, duration: .data.value}' results.json)
-          slowest_url=$(echo "$slowest" | jq -r '.url')
-          slowest_time=$(echo "$slowest" | jq -r '.duration')
-
-          summary=$(cat <<EOF
-          ✅  *k6 Browser Test Summary*
-          📊  *Total HTTP Requests*: $total_requests
-          🚀  *Avg Response Time*: $(printf "%.2f" "$avg_duration") ms
-          📦  *HTTP Status Codes*: $status_summary
-          💥  *Failed HTTP Requests*: $failed_requests
-          🐢  *Slowest Endpoint*: $slowest_url → $(printf "%.2f" "$slowest_time") ms
-          ✅  *Checks Passed*: $passed_checks
-          ❌  *Checks Failed*: $failed_checks
-          EOF
-          )
-          
-          echo "$summary"
-          jq -n --arg text "$summary" '{text: $text}'
-          
-          jq -n --arg text "$summary" '{text: $text}' | \
-          curl -X POST -H "Content-type: application/json" \
-            --data @- \
-            "$SLACK_INTEGRATION_WEBHOOK"
+          k6 run ./path/to/payment-test.js
